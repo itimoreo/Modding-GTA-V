@@ -654,15 +654,6 @@ public class AddMoney : Script
         int detectionRisk = Math.Min(dirtyMoney / 1000, 50); // Risque de détection basé sur l'argent sale 50% max
         return chance <= detectionRisk; // Retourne vrai si le joueur est détecté
     }
-
-    private void SpawnHostiles()
-    {
-        Vector3 spawnLocation = Game.Player.Character.Position + new Vector3(10, 10, 0); // À 10 mètres
-        Ped hostile = World.CreatePed(PedHash.BallasLeader, spawnLocation);
-        hostile.Weapons.Give(WeaponHash.CarbineRifle, 100, true, true); // Donne une arme
-        hostile.Task.FightAgainst(Game.Player.Character); // Attaque le joueur
-    }
-
     private int CalculatePimpValue(Vehicle vehicle)
     {
         int pimpValue = 0;

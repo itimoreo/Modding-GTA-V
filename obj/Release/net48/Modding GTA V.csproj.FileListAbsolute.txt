@@ -12,3 +12,4 @@ D:\Modding GTA V\obj\Release\net48\CarDealerShipMod.dll
 D:\Modding GTA V\obj\Release\net48\CarDealerShipMod.pdb
 D:\Modding GTA V\bin\Release\net48\libs\iFruitAddon2.dll
 D:\Modding GTA V\bin\Release\net48\iFruitAddon2.dll
+D:\Modding GTA V\obj\Release\net48\Modding GTA V.sourcelink.json

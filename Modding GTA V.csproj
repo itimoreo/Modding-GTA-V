@@ -21,11 +21,6 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Inclure tous les fichiers sources récursivement -->
-  <ItemGroup>
-    <Compile Include="src\**\*.cs" />
-  </ItemGroup>
-
   <!-- Inclure toutes les DLL nécessaires présentes dans le dossier libs -->
   <ItemGroup>
     <None Update="libs\*.dll">
