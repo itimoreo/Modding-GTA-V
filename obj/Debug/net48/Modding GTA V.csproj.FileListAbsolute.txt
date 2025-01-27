@@ -1,0 +1,12 @@
+D:\Modding GTA V\bin\Debug\net48\libs\ScriptHookVDotNet3.dll
+D:\Modding GTA V\bin\Debug\net48\Modding GTA V.dll
+D:\Modding GTA V\bin\Debug\net48\Modding GTA V.pdb
+D:\Modding GTA V\bin\Debug\net48\ScriptHookVDotNet3.dll
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.csproj.AssemblyReference.cache
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.GeneratedMSBuildEditorConfig.editorconfig
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.AssemblyInfoInputs.cache
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.AssemblyInfo.cs
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.csproj.CoreCompileInputs.cache
+D:\Modding GTA V\obj\Debug\net48\Modding .4F0236AE.Up2Date
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.dll
+D:\Modding GTA V\obj\Debug\net48\Modding GTA V.pdb

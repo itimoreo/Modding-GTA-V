@@ -1,0 +1,14 @@
+D:\Modding GTA V\bin\Debug\net8.0\Modding GTA V.exe
+D:\Modding GTA V\bin\Debug\net8.0\Modding GTA V.deps.json
+D:\Modding GTA V\bin\Debug\net8.0\Modding GTA V.runtimeconfig.json
+D:\Modding GTA V\bin\Debug\net8.0\Modding GTA V.dll
+D:\Modding GTA V\bin\Debug\net8.0\Modding GTA V.pdb
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.GeneratedMSBuildEditorConfig.editorconfig
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.AssemblyInfoInputs.cache
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.AssemblyInfo.cs
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.csproj.CoreCompileInputs.cache
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.dll
+D:\Modding GTA V\obj\Debug\net8.0\refint\Modding GTA V.dll
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.pdb
+D:\Modding GTA V\obj\Debug\net8.0\Modding GTA V.genruntimeconfig.cache
+D:\Modding GTA V\obj\Debug\net8.0\ref\Modding GTA V.dll

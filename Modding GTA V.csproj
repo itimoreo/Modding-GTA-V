@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Configuration du projet -->
+  <PropertyGroup>
+    <!-- Indique que le projet génère une bibliothèque (DLL) -->
+    <OutputType>Library</OutputType>
+    <!-- Cible .NET Framework 4.8, compatible avec ScriptHookVDotNet -->
+    <TargetFramework>net48</TargetFramework>
+    <!-- Génère des fichiers de symbole pour le débogage -->
+    <DebugType>full</DebugType>
+    <!-- Empêche les avertissements sur les API obsolètes -->
+    <NoWarn>CS0618</NoWarn>
+  </PropertyGroup>
+
+  <!-- Références nécessaires pour ScriptHookVDotNet et le modding -->
+  <!-- Références pour ScriptHookVDotNet et iFruitAddon2 -->
+<ItemGroup>
+  <Reference Include="System.Windows.Forms" />
+  <Reference Include="ScriptHookVDotNet">
+    <HintPath>libs\ScriptHookVDotNet3.dll</HintPath>
+  </Reference>
+  <Reference Include="iFruitAddon2">
+    <HintPath>libs\iFruitAddon2.dll</HintPath>
+  </Reference>
+</ItemGroup>
+
+
+  <!-- Dépendances supplémentaires -->
+  <ItemGroup>
+    <!-- Inclure tous les fichiers DLL nécessaires présents dans le dossier libs -->
+    <None Update="libs\*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Configuration de compilation -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Optimisation pour la version Release -->
+    <Optimize>true</Optimize>
+    <AssemblyName>CarDealerShipMod</AssemblyName>
+  </PropertyGroup>
+
+</Project>
