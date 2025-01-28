@@ -7,7 +7,7 @@ using GTA.Native;
 using GTA.Math;
 using iFruitAddon2; // Ensure this library is referenced in your project
 
-public class AddMoney : Script
+public class CarDealership : Script
 {
     private readonly CustomiFruit _ifruit = new CustomiFruit();
     private readonly iFruitContact blackMarketContact = new iFruitContact("Black Market");
@@ -36,7 +36,7 @@ public class AddMoney : Script
     private Vehicle targetVehicle;
 
 
-    public AddMoney()
+    public CarDealership()
     {
         Tick += OnTick; // Appelé à chaque frame
         KeyDown += OnKeyDown; // Détecte les touches appuyées
