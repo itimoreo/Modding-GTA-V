@@ -32,9 +32,37 @@ public class CarDealership : Script
     private int dirtyMoney = 0;
     private string saveFilePath = "scripts\\save.txt";
     private bool playerHasSoldCar = false;
+
+    // For the vehicle theft mission --------
     private VehicleTheftMission activeMission;
     private Vehicle targetVehicle;
+    private readonly List<VehicleHash> availableVehicles = new List<VehicleHash>
+{
+    VehicleHash.Adder, // Véhicule de type supercar
+    VehicleHash.T20,   // Véhicule de type supercar rapide
+    VehicleHash.Zentorno, // Véhicule emblématique de sport
+    VehicleHash.Osiris, // Osiris
+    VehicleHash.Bullet,
+    VehicleHash.Vacca,
+    VehicleHash.Infernus,
+    VehicleHash.Cheetah,
+    VehicleHash.Turismo2,
+    VehicleHash.Turismor,
+    VehicleHash.Tempesta,
+    VehicleHash.Nero,
+    VehicleHash.Nero2,
+};
 
+    private readonly List<Vector3> spawnLocations = new List<Vector3>
+{
+    new Vector3(-1152.933f, -2734.399f, 13.9526f), // Localisation près d'un entrepôt
+    new Vector3(217.603f, -800.745f, 30.655f), // Localisation en centre-ville
+    new Vector3(-1034.553f, -491.692f, 36.214f), // Localisation proche des docks
+    new Vector3(1210.756f, 2658.333f, 37.899f), // Localisation dans une zone industrielle
+    new Vector3(-205.123f, 6218.567f, 31.489f) // Localisation rurale éloignée
+};
+    private Blip targetVehicleBlip;
+    private Blip deliveryBlip;
 
     public CarDealership()
     {
@@ -58,7 +86,7 @@ public class CarDealership : Script
         _ifruit.Update(); // Met à jour le téléphone
         CheckVehicleTheft(); // Vérifie si le joueur a volé un véhicule
         DeliverStolenVehicle();
-        
+
     }
 
     private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
@@ -78,6 +106,14 @@ public class CarDealership : Script
             else
             {
                 Notification.Show("~r~You are not in the correct location to perform this action!");
+            }
+        }
+        if (e.KeyCode == System.Windows.Forms.Keys. T)
+        {
+            // Vérifie si une mission est active
+            if (activeMission != null && activeMission.IsActive)
+            {
+                ForceResetMission(); // Réinitialise la mission manuellement
             }
         }
     }
@@ -138,42 +174,53 @@ public class CarDealership : Script
 
     private void StartVehicleTheftMission()
     {
-        // Vérifie si une mission est déjà active
+        // Validation : empêche le démarrage d'une nouvelle mission si une est déjà active
         if (activeMission != null && activeMission.IsActive)
         {
-            Notification.Show("~r~A mission is already active!");
+            Notification.Show("~r~A mission is already active! Complete it before starting another.");
             return;
         }
 
-        // Initialise une nouvelle mission
+        // Choix aléatoire d'un véhicule parmi la liste des véhicules disponibles
+        Random random = new Random();
+        VehicleHash selectedVehicle = availableVehicles[random.Next(availableVehicles.Count)];
+
+        // Sélectionne une localisation de spawn aléatoire parmi les emplacements définis
+        Vector3 selectedSpawnLocation = spawnLocations[random.Next(spawnLocations.Count)];
+
+        // Initialisation de la mission avec les paramètres choisis
         activeMission = new VehicleTheftMission
         {
-            Name = "Steal a Supercar",
-            TargetVehicle = VehicleHash.T20, // Exemple de supercar
-            SpawnLocation = new Vector3(-1152.933f, -2734.399f, 13.9526f),
-            DeliveryLocation = new Vector3(-560.7960f, 302.1563f, 83.1715f)
+            Name = $"Steal the {selectedVehicle}", // Nom de la mission généré dynamiquement
+            TargetVehicle = selectedVehicle, // Modèle du véhicule cible
+            SpawnLocation = selectedSpawnLocation, // Localisation où le véhicule spawn
+            DeliveryLocation = new Vector3(-560.7960f, 302.1563f, 83.1715f), // Localisation fixe pour la livraison
+            IsActive = true // La mission est maintenant active
         };
 
-        activeMission.IsActive = true;
+        // Crée un blip sur la carte pour indiquer la localisation du véhicule cible
+        targetVehicleBlip = World.CreateBlip(activeMission.SpawnLocation);
+        targetVehicleBlip.Sprite = BlipSprite.PersonalVehicleCar; // Icône de voiture sur le radar
+        targetVehicleBlip.Color = BlipColor.Yellow; // Couleur jaune pour identifier facilement
+        targetVehicleBlip.Name = "Target Vehicle"; // Nom affiché pour le blip
 
-        // Crée un blip pour la localisation du véhicule
-        Blip spawnBlip = World.CreateBlip(activeMission.SpawnLocation);
-        spawnBlip.Sprite = BlipSprite.PersonalVehicleCar;
-        spawnBlip.Color = BlipColor.Yellow;
-        spawnBlip.Name = "Target Vehicle";
-
-        // Fait apparaître le véhicule cible
+        // Fait apparaître le véhicule cible à la localisation choisie
         targetVehicle = World.CreateVehicle(activeMission.TargetVehicle, activeMission.SpawnLocation);
         if (targetVehicle != null)
         {
-            targetVehicle.IsPersistent = true; // Rend le véhicule persistant
+            targetVehicle.IsPersistent = true; // Le véhicule reste dans le monde jusqu'à la fin de la mission
+            targetVehicle.PlaceOnGround(); // Place le véhicule sur le sol pour éviter les bugs
+            targetVehicle.LockStatus = VehicleLockStatus.CanBeBrokenIntoPersist; // Verrouille le véhicule pour simuler un vol
         }
         else
         {
+            // En cas d'échec de spawn, annule la mission et informe le joueur
             Notification.Show("~r~Failed to spawn the target vehicle!");
+            activeMission = null; // Réinitialisation de la mission
             return;
         }
 
+        // Notifie le joueur du début de la mission
         Notification.Show($"~y~Mission started: {activeMission.Name}. Go to the location!");
     }
 
@@ -189,13 +236,23 @@ public class CarDealership : Script
         {
             Notification.Show("~g~You stole the target vehicle! Deliver it to the drop-off point.");
 
-            // Ajoute un blip pour la localisation de livraison
-            Blip deliveryBlip = World.CreateBlip(activeMission.DeliveryLocation);
-            deliveryBlip.Sprite = BlipSprite.Garage;
-            deliveryBlip.Color = BlipColor.Green;
-            deliveryBlip.Name = "Delivery Point";
+            // Ajoute un blip pour la localisation de livraison si pas déjà créé
+            if (deliveryBlip == null)
+            {
+                deliveryBlip = World.CreateBlip(activeMission.DeliveryLocation);
+                deliveryBlip.Sprite = BlipSprite.Garage;
+                deliveryBlip.Color = BlipColor.Green;
+                deliveryBlip.Name = "Delivery Point";
+            }
 
-            activeMission.IsActive = false; // Désactive la mission
+            // Supprime le blip du véhicule cible
+            if (targetVehicleBlip != null)
+            {
+                targetVehicleBlip.Delete();
+                targetVehicleBlip = null;
+            }
+
+            activeMission.IsActive = false; // Désactive l'indicateur d'activité de la mission
         }
     }
 
@@ -223,14 +280,13 @@ public class CarDealership : Script
                 targetVehicle = null;
                 activeMission = null; // Réinitialise la mission
                 dirtyMoney += 120000; // Récompense pour la livraison
+                SaveDirtyMoney(); // Sauvegarde l'argent sale
 
                 // Supprime le blip de livraison s'il existe
-                foreach (Blip blip in World.GetAllBlips())
+                if (deliveryBlip != null)
                 {
-                    if (blip.Name == "Delivery Point")
-                    {
-                        blip.Delete();
-                    }
+                    deliveryBlip.Delete();
+                    deliveryBlip = null;
                 }
             }
         }
@@ -240,14 +296,37 @@ public class CarDealership : Script
         }
     }
 
-    private void DebugDeliveryInfo()
+    private void ResetMissionState()
     {
-        if (targetVehicle == null || activeMission == null) return;
+        // Réinitialise l'état de la mission et supprime les entités persistantes
+        if (targetVehicle != null)
+        {
+            targetVehicle.IsPersistent = false; // Rend le véhicule non persistant
+            targetVehicle.Delete();
+            targetVehicle = null;
+        }
 
-        float distanceToDelivery = targetVehicle.Position.DistanceTo(activeMission.DeliveryLocation);
-        Notification.Show($"~y~Distance to delivery: {distanceToDelivery:F1} meters");
+        if (targetVehicleBlip != null)
+        {
+            targetVehicleBlip.Delete();
+            targetVehicleBlip = null;
+        }
+
+        if (deliveryBlip != null)
+        {
+            deliveryBlip.Delete();
+            deliveryBlip = null;
+        }
+
+        activeMission = null;
     }
 
+    // Appelle cette méthode pour réinitialiser manuellement en cas de bug ou d'arrêt forcé
+    private void ForceResetMission()
+    {
+        Notification.Show("~r~Mission reset due to an error or manual override.");
+        ResetMissionState();
+    }
 
 
 

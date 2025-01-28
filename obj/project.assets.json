@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Modding GTA V\\Modding GTA V.csproj",
-      "projectName": "CarDealerShipMod",
-      "projectPath": "D:\\Modding GTA V\\Modding GTA V.csproj",
+      "projectUniqueName": "D:\\ModdingGTAV\\Modding GTA V\\Modding GTA V.csproj",
+      "projectName": "Modding GTA V",
+      "projectPath": "D:\\ModdingGTAV\\Modding GTA V\\Modding GTA V.csproj",
       "packagesPath": "C:\\Users\\itimo\\.nuget\\packages\\",
-      "outputPath": "D:\\Modding GTA V\\obj\\",
+      "outputPath": "D:\\ModdingGTAV\\Modding GTA V\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\itimo\\AppData\\Roaming\\NuGet\\NuGet.Config"
