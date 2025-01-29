@@ -11,6 +11,8 @@ using LemonUI.Menus;
 
 public class CarDealership : Script
 {
+    private ObjectPool menuPool;
+    private NativeMenu stashMenu;
     private readonly CustomiFruit _ifruit = new CustomiFruit();
     private readonly iFruitContact blackMarketContact = new iFruitContact("Black Market");
     private Vector3 marketLocation = new Vector3(170.8461f, 6359.0230f, 31.4532f); // Localisation du marché noir
@@ -80,6 +82,7 @@ public class CarDealership : Script
         RemoveBlips(); // Supprime les marqueurs sur la carte
         InitializePhone(); // Initialise le téléphone
         InitializeStash(); // Initialise le coffre
+        InitializeStashMenu(); // Initialise le menu du coffre
     }
 
     private void OnTick(object sender, System.EventArgs e)
@@ -94,6 +97,7 @@ public class CarDealership : Script
         _ifruit.Update(); // Met à jour le téléphone
         CheckVehicleTheft(); // Vérifie si le joueur a volé un véhicule
         DeliverStolenVehicle();
+        menuPool.Process(); // Met à jour le menu LemonUI
 
 
     }
@@ -102,17 +106,20 @@ public class CarDealership : Script
     {
         if (e.KeyCode == System.Windows.Forms.Keys.E)
         {
-            if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
-            {
-                TryStoreDirtyMoney();
-            }
-            else if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
+
+            if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
             {
                 TryLaunderingMoney();
+                UpdateStashMenu();
+            }
+            else if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+            {
+                stashMenu.Visible = true; // Ouvre le menu LemonUI
             }
             else if (isPlayerInMarket)
             {
                 TrySellVehicle();
+                UpdateStashMenu();
             }
             else
             {
@@ -141,6 +148,33 @@ public class CarDealership : Script
         // }
     }
 
+    /// -------------- Stash Menu Methods ----------------
+
+    private void InitializeStashMenu()
+    {
+        menuPool = new ObjectPool();
+        stashMenu = new NativeMenu("Money Stash", "Manage your dirty money");
+
+        var stashInfo = new NativeItem($"Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}");
+        stashInfo.Enabled = false; // Désactiver l'interaction (juste une info)
+
+        var depositItem = new NativeItem("Deposit Money", "Store dirty money in the stash.");
+        var withdrawItem = new NativeItem("Withdraw Money", "Take dirty money from the stash.");
+
+        depositItem.Activated += (sender, args) => { TryStoreDirtyMoney(); UpdateStashMenu(); };
+        withdrawItem.Activated += (sender, args) => { TryWithdrawDirtyMoney(); UpdateStashMenu(); };
+
+        stashMenu.Add(stashInfo);
+        stashMenu.Add(depositItem);
+        stashMenu.Add(withdrawItem);
+        menuPool.Add(stashMenu);
+    }
+
+    private void UpdateStashMenu()
+    {
+        stashMenu.Items[0].Title = $"Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}";
+    }
+
 
     /// -------------- Stash Methods --------------
 
@@ -153,49 +187,49 @@ public class CarDealership : Script
     }
 
     private void TryStoreDirtyMoney()
-{
-    if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
     {
-        if (dirtyMoney > 0)
+        if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
         {
-            storedDirtyMoney += dirtyMoney;
-            dirtyMoney = 0;
-            SaveDirtyMoney();
-            Notification.Show("~g~You stored your dirty money in the stash!");
+            if (dirtyMoney > 0)
+            {
+                storedDirtyMoney += dirtyMoney;
+                dirtyMoney = 0;
+                SaveDirtyMoney();
+                Notification.Show("~g~You stored your dirty money in the stash!");
+            }
+            else
+            {
+                Notification.Show("~r~You have no dirty money to store!");
+            }
         }
         else
         {
-            Notification.Show("~r~You have no dirty money to store!");
+            Notification.Show("~r~You are not at the stash location!");
         }
     }
-    else
-    {
-        Notification.Show("~r~You are not at the stash location!");
-    }
-}
 
     private void TryWithdrawDirtyMoney()
-{
-    if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
     {
-        if (storedDirtyMoney > 0)
+        if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
         {
-            int amountToWithdraw = Math.Min(storedDirtyMoney, maxCarriedDirtyMoney - dirtyMoney);
-            storedDirtyMoney -= amountToWithdraw;
-            dirtyMoney += amountToWithdraw;
-            SaveDirtyMoney();
-            Notification.Show($"~g~You withdrew ${amountToWithdraw} from the stash!");
+            if (storedDirtyMoney > 0)
+            {
+                int amountToWithdraw = Math.Min(storedDirtyMoney, maxCarriedDirtyMoney - dirtyMoney);
+                storedDirtyMoney -= amountToWithdraw;
+                dirtyMoney += amountToWithdraw;
+                SaveDirtyMoney();
+                Notification.Show($"~g~You withdrew ${amountToWithdraw} from the stash!");
+            }
+            else
+            {
+                Notification.Show("~r~No money available in the stash!");
+            }
         }
         else
         {
-            Notification.Show("~r~No money available in the stash!");
+            Notification.Show("~r~You are not at the stash location!");
         }
     }
-    else
-    {
-        Notification.Show("~r~You are not at the stash location!");
-    }
-}
 
 
     private void TrySellVehicleWithMoneyLimit(Vehicle vehicle)

@@ -28,3 +28,5 @@ D:\ModdingGTAV\Modding GTA V\obj\Release\net48\Modding GTA V.sourcelink.json
 D:\ModdingGTAV\Modding GTA V\obj\Release\net48\Modding .4F0236AE.Up2Date
 D:\ModdingGTAV\Modding GTA V\obj\Release\net48\CarDealerShipMod.dll
 D:\ModdingGTAV\Modding GTA V\obj\Release\net48\CarDealerShipMod.pdb
+D:\ModdingGTAV\Modding GTA V\bin\Release\net48\libs\LemonUI.SHVDN3.dll
+D:\ModdingGTAV\Modding GTA V\bin\Release\net48\LemonUI.SHVDN3.dll
