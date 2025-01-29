@@ -63,6 +63,10 @@ public class CarDealership : Script
 };
     private Blip targetVehicleBlip;
     private Blip deliveryBlip;
+    private int maxCarriedDirtyMoney = 350000; // Montant maximum d'argent sale pouvant être transporté
+    private int storedDirtyMoney = 0; // Argent sale stocké dans le coffre
+    private Vector3 stashLocation = new Vector3(105.3457f, 6378.1206f, 31.2257f); // Localisation du coffre
+    private Blip stashBlip;
 
     public CarDealership()
     {
@@ -73,6 +77,7 @@ public class CarDealership : Script
         UpdateBlips(); // Crée les marqueurs sur la carte
         RemoveBlips(); // Supprime les marqueurs sur la carte
         InitializePhone(); // Initialise le téléphone
+        InitializeStash(); // Initialise le coffre
     }
 
     private void OnTick(object sender, System.EventArgs e)
@@ -81,11 +86,13 @@ public class CarDealership : Script
         CheckLaunderingLocation(); // Vérifie la position du joueur par rapport au blanchiment d'argent
         DrawMarketLocation(); // Dessine un marqueur visible
         DrawLaunderingLocation(); // Dessine un marqueur visible
+        DrawStashLocation(); // Dessine un marqueur visible
         HandleNotificationTimeout(); // Gère l'affichage temporaire des notifications
         DisplayDirtyMoney(); // Affiche l'argent sale
         _ifruit.Update(); // Met à jour le téléphone
         CheckVehicleTheft(); // Vérifie si le joueur a volé un véhicule
         DeliverStolenVehicle();
+
 
     }
 
@@ -93,22 +100,31 @@ public class CarDealership : Script
     {
         if (e.KeyCode == System.Windows.Forms.Keys.E)
         {
-            // Vérifie si le joueur est dans la zone du marché noir
-            if (isPlayerInMarket)
+            if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
             {
-                TrySellVehicle(); // Tente de vendre le véhicule
+                TryStoreDirtyMoney();
             }
-            // Vérifie si le joueur est dans la zone de blanchiment
-            else if (Game.Player.Character.Position.DistanceTo(launderingLocation) <= 5.0f)
+            else if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
             {
-                TryLaunderingMoney(); // Tente de blanchir l'argent
+                TryLaunderingMoney();
+            }
+            else if (isPlayerInMarket)
+            {
+                TrySellVehicle();
             }
             else
             {
                 Notification.Show("~r~You are not in the correct location to perform this action!");
             }
         }
-        if (e.KeyCode == System.Windows.Forms.Keys. T)
+        if (e.KeyCode == System.Windows.Forms.Keys.R)
+        {
+            if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+            {
+                TryWithdrawDirtyMoney();
+            }
+        }
+        if (e.KeyCode == System.Windows.Forms.Keys.T)
         {
             // Vérifie si une mission est active
             if (activeMission != null && activeMission.IsActive)
@@ -116,10 +132,95 @@ public class CarDealership : Script
                 ForceResetMission(); // Réinitialise la mission manuellement
             }
         }
+        
+        // if (e.KeyCode == System.Windows.Forms.Keys.F7)
+        // {
+        //    dirtyMoney += 350000; // Déplace le marché noir à une nouvelle position
+        // }
     }
 
+
+    /// -------------- Stash Methods --------------
+
+    private void InitializeStash()
+    {
+        stashBlip = World.CreateBlip(stashLocation);
+        stashBlip.Sprite = BlipSprite.Safehouse;
+        stashBlip.Color = BlipColor.Yellow;
+        stashBlip.Name = "Money Stash";
+    }
+
+    private void TryStoreDirtyMoney()
+{
+    if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+    {
+        if (dirtyMoney > 0)
+        {
+            storedDirtyMoney += dirtyMoney;
+            dirtyMoney = 0;
+            SaveDirtyMoney();
+            Notification.Show("~g~You stored your dirty money in the stash!");
+        }
+        else
+        {
+            Notification.Show("~r~You have no dirty money to store!");
+        }
+    }
+    else
+    {
+        Notification.Show("~r~You are not at the stash location!");
+    }
+}
+
+    private void TryWithdrawDirtyMoney()
+{
+    if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+    {
+        if (storedDirtyMoney > 0)
+        {
+            int amountToWithdraw = Math.Min(storedDirtyMoney, maxCarriedDirtyMoney - dirtyMoney);
+            storedDirtyMoney -= amountToWithdraw;
+            dirtyMoney += amountToWithdraw;
+            SaveDirtyMoney();
+            Notification.Show($"~g~You withdrew ${amountToWithdraw} from the stash!");
+        }
+        else
+        {
+            Notification.Show("~r~No money available in the stash!");
+        }
+    }
+    else
+    {
+        Notification.Show("~r~You are not at the stash location!");
+    }
+}
+
+
+    private void TrySellVehicleWithMoneyLimit(Vehicle vehicle)
+    {
+        if (dirtyMoney >= maxCarriedDirtyMoney)
+        {
+            Notification.Show("~r~You are carrying too much dirty money! Store some before selling!");
+            return;
+        }
+
+        int price = CalculatePriceBasedOnTypeAndDamage(vehicle);
+        int maxEarnings = maxCarriedDirtyMoney - dirtyMoney;
+        int actualEarnings = Math.Min(price, maxEarnings);
+        dirtyMoney += actualEarnings;
+        vehicle.Delete();
+        Notification.Show($"~g~Car sold for ${actualEarnings}!");
+        if (actualEarnings < price)
+        {
+            Notification.Show("~y~Some money was lost as you reached your carry limit.");
+        }
+    }
+
+
+
+
     /// ---------- Vehicle Theft Mission Methods ----------
-    
+
     public class VehicleTheftMission
     {
         public string Name { get; set; }
@@ -288,7 +389,7 @@ public class CarDealership : Script
 
 
     /// -------------- Phone Methods --------------
-    
+
     private void InitializePhone()
     {
         // Configure le contact du marché noir
@@ -340,8 +441,8 @@ public class CarDealership : Script
     }
 
     /// -------------- Black Market Methods --------------
-    
-    
+
+
     private void MoveBlackMarket()
     {
         Random random = new Random();
@@ -360,7 +461,7 @@ public class CarDealership : Script
 
         Notification.Show("~g~The Black Market has moved to a new location!");
     }
-    
+
 
     private void CheckMarketLocation()
     {
@@ -405,7 +506,7 @@ public class CarDealership : Script
             // Vérifie si le véhicule est volé
             if (vehicle != null && IsVehicleStolen(vehicle))
             {
-                SellVehicle(vehicle); // Vendre le véhicule
+                TrySellVehicleWithMoneyLimit(vehicle); // Vendre le véhicule
             }
             else
             {
@@ -441,7 +542,7 @@ public class CarDealership : Script
         Notification.Show("~y~The black market has returned to its initial location.");
     }
 
-    
+
     private void DrawMarketLocation()
     {
         // Dessine un marqueur rouge sur l'emplacement du marché noir
@@ -456,11 +557,25 @@ public class CarDealership : Script
             false
         );
     }
+    private void DrawStashLocation()
+    {
+        // Dessine un marqueur vert sur l'emplacement du coffre
+        World.DrawMarker(
+            MarkerType.VerticalCylinder,
+            stashLocation,
+            Vector3.Zero,
+            Vector3.Zero,
+            new Vector3(3.0f, 3.0f, 0.5f),
+            Color.Green,
+            false,
+            false
+        );
+    }
 
 
     /// ------------- Laundering Methods -------------
 
-        // Vérifie si le joueur est dans la zone de blanchiment
+    // Vérifie si le joueur est dans la zone de blanchiment
     private void CheckLaunderingLocation()
     {
         Vector3 playerPosition = Game.Player.Character.Position;
@@ -472,7 +587,7 @@ public class CarDealership : Script
         }
     }
 
-     private void DrawLaunderingLocation()
+    private void DrawLaunderingLocation()
     {
         // Dessine un marqueur rouge sur l'emplacement du marché noir
         World.DrawMarker(
@@ -539,13 +654,13 @@ public class CarDealership : Script
     {
         Random random = new Random();
         int chance = random.Next(0, 101); // Génère un nombre aléatoire entre 0 et 100
-        int detectionRisk = Math.Min(dirtyMoney / 1000, 50); // Risque de détection basé sur l'argent sale 50% max
+        int detectionRisk = Math.Min(dirtyMoney / 500, 50); // Risque de détection basé sur l'argent sale 50% max
         return chance <= detectionRisk; // Retourne vrai si le joueur est détecté
     }
 
     /// -------------- Utility Methods --------------
-    
-    
+
+
     private float GetCorrectedGroundHeight(Vector3 position)
     {
         RaycastResult raycast = World.Raycast(position + new Vector3(0, 0, 50), position + new Vector3(0, 0, -50), IntersectFlags.Everything);
@@ -556,7 +671,7 @@ public class CarDealership : Script
         return position.Z; // Si le raycast échoue, retourne la hauteur originale
     }
 
-    
+
     private void ShowMarketNotification()
     {
         // Affiche une notification pour indiquer l'entrée dans la zone
@@ -573,7 +688,7 @@ public class CarDealership : Script
             isNotificationVisible = false;
         }
     }
-        private bool IsVehicleStolen(Vehicle vehicle)
+    private bool IsVehicleStolen(Vehicle vehicle)
     {
         // Considère le véhicule comme volé si le joueur est le conducteur et que le véhicule n'est pas "propriétaire" du joueur
         return vehicle.Driver == Game.Player.Character && !vehicle.IsPersistent;
@@ -624,8 +739,8 @@ public class CarDealership : Script
 
 
     /// -------------- Save/Load Methods -------------- 
-    
-        
+
+
     private void SaveDirtyMoney()
     {
         try
@@ -659,7 +774,7 @@ public class CarDealership : Script
         }
 
     }
-    
+
     /// ---------------------------------------------
     /// -------------- Display Methods --------------
     /// ---------------------------------------------
@@ -683,7 +798,7 @@ public class CarDealership : Script
     }
 
     /// --------------- Blip Methods ---------------
-    
+
     private void CreateMarketBlip()
     {
         // Supprime le blip précédent s'il existe
@@ -794,15 +909,4 @@ public class CarDealership : Script
                 return 1.0f; // Prix normal
         }
     }
-
-
-
-
-
-    
-
-
-    
-    
-
 }
