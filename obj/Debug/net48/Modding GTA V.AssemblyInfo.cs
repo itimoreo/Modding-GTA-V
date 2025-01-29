@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Modding GTA V")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6cd14b939b12633e70a88c9add7378bd37991e5f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ccebd772a8a9b872182ded619147c970e6d8c56a")]
 [assembly: System.Reflection.AssemblyProductAttribute("Modding GTA V")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Modding GTA V")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
