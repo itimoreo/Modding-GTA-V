@@ -6,6 +6,8 @@ using GTA.UI;
 using GTA.Native;
 using GTA.Math;
 using iFruitAddon2; // Ensure this library is referenced in your project
+using LemonUI;
+using LemonUI.Menus;
 
 public class CarDealership : Script
 {
@@ -132,7 +134,7 @@ public class CarDealership : Script
                 ForceResetMission(); // Réinitialise la mission manuellement
             }
         }
-        
+
         // if (e.KeyCode == System.Windows.Forms.Keys.F7)
         // {
         //    dirtyMoney += 350000; // Déplace le marché noir à une nouvelle position
