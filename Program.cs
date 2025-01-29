@@ -118,6 +118,8 @@ public class CarDealership : Script
         }
     }
 
+    /// ---------- Vehicle Theft Mission Methods ----------
+    
     public class VehicleTheftMission
     {
         public string Name { get; set; }
@@ -126,51 +128,6 @@ public class CarDealership : Script
         public Vector3 DeliveryLocation { get; set; }
         public bool IsActive { get; set; }
     }
-
-    private void InitializePhone()
-    {
-        // Configure le contact du marché noir
-        _ifruit.SetWallpaper(Wallpaper.Orange8Bit);
-        _ifruit.SetWallpaper("prop_screen_dct1");
-        _ifruit.LeftButtonColor = System.Drawing.Color.LimeGreen;
-        _ifruit.CenterButtonColor = System.Drawing.Color.Orange;
-        _ifruit.RightButtonColor = System.Drawing.Color.Purple;
-        _ifruit.LeftButtonIcon = SoftKeyIcon.Police;
-        _ifruit.CenterButtonIcon = SoftKeyIcon.Fire;
-        _ifruit.RightButtonIcon = SoftKeyIcon.Website;
-
-        iFruitContact contactA = new iFruitContact("Black Market")
-        {
-            DialTimeout = 4000,
-            Active = true,
-            Icon = ContactIcon.Blank
-        };
-        contactA.Answered += (contact) => OnBlackMarketCalled(contact);
-        _ifruit.Contacts.Add(contactA);
-
-        iFruitContact contactB = new iFruitContact("Spencer")
-        {
-            DialTimeout = 4000,
-            Active = true,
-            Icon = ContactIcon.Blank
-        };
-        contactB.Answered += (contact) => OnSpencerCalled(contact);
-        _ifruit.Contacts.Add(contactB);
-    }
-
-
-    private void OnSpencerCalled(iFruitContact contact)
-    {
-        if (activeMission != null && activeMission.IsActive)
-        {
-            Notification.Show("~r~A mission is already active! Complete it before starting another.");
-            return;
-        }
-
-        // Démarre une mission de vol
-        StartVehicleTheftMission();
-    }
-
 
     private void StartVehicleTheftMission()
     {
@@ -330,6 +287,50 @@ public class CarDealership : Script
 
 
 
+    /// -------------- Phone Methods --------------
+    
+    private void InitializePhone()
+    {
+        // Configure le contact du marché noir
+        _ifruit.SetWallpaper(Wallpaper.Orange8Bit);
+        _ifruit.SetWallpaper("prop_screen_dct1");
+        _ifruit.LeftButtonColor = System.Drawing.Color.LimeGreen;
+        _ifruit.CenterButtonColor = System.Drawing.Color.Orange;
+        _ifruit.RightButtonColor = System.Drawing.Color.Purple;
+        _ifruit.LeftButtonIcon = SoftKeyIcon.Police;
+        _ifruit.CenterButtonIcon = SoftKeyIcon.Fire;
+        _ifruit.RightButtonIcon = SoftKeyIcon.Website;
+
+        iFruitContact contactA = new iFruitContact("Black Market")
+        {
+            DialTimeout = 4000,
+            Active = true,
+            Icon = ContactIcon.Blank
+        };
+        contactA.Answered += (contact) => OnBlackMarketCalled(contact);
+        _ifruit.Contacts.Add(contactA);
+
+        iFruitContact contactB = new iFruitContact("Spencer")
+        {
+            DialTimeout = 4000,
+            Active = true,
+            Icon = ContactIcon.Blank
+        };
+        contactB.Answered += (contact) => OnSpencerCalled(contact);
+        _ifruit.Contacts.Add(contactB);
+    }
+
+    private void OnSpencerCalled(iFruitContact contact)
+    {
+        if (activeMission != null && activeMission.IsActive)
+        {
+            Notification.Show("~r~A mission is already active! Complete it before starting another.");
+            return;
+        }
+
+        // Démarre une mission de vol
+        StartVehicleTheftMission();
+    }
 
     private void OnBlackMarketCalled(iFruitContact contact)
     {
@@ -337,6 +338,10 @@ public class CarDealership : Script
         Notification.Show("~y~Black Market: How can I help you?");
         MoveBlackMarket(); // Déplace le marché noir
     }
+
+    /// -------------- Black Market Methods --------------
+    
+    
     private void MoveBlackMarket()
     {
         Random random = new Random();
@@ -355,38 +360,7 @@ public class CarDealership : Script
 
         Notification.Show("~g~The Black Market has moved to a new location!");
     }
-
-
-    private float GetCorrectedGroundHeight(Vector3 position)
-    {
-        RaycastResult raycast = World.Raycast(position + new Vector3(0, 0, 50), position + new Vector3(0, 0, -50), IntersectFlags.Everything);
-        if (raycast.DidHit)
-        {
-            return raycast.HitPosition.Z;
-        }
-        return position.Z; // Si le raycast échoue, retourne la hauteur originale
-    }
-
-
-
-
-    private void DisplayDirtyMoney()
-    {
-        string text = $"Dirty Money: ${dirtyMoney}"; // Texte à afficher
-
-        // Configure la police, taille et couleur
-        Function.Call(Hash.SET_TEXT_FONT, 0); // Police standard
-        Function.Call(Hash.SET_TEXT_SCALE, 0.4f, 0.4f); // Taille du texte
-        Function.Call(Hash.SET_TEXT_COLOUR, 255, 0, 0, 255); // Couleur rouge (RGBA)
-        Function.Call(Hash.SET_TEXT_OUTLINE); // Ajoute une bordure pour la lisibilité
-
-        // Prépare le texte
-        Function.Call(Hash.BEGIN_TEXT_COMMAND_DISPLAY_TEXT, "STRING");
-        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, text);
-
-        // Affiche le texte à l'écran (position X, Y)
-        Function.Call(Hash.END_TEXT_COMMAND_DISPLAY_TEXT, 0.9f, 0.3f); // 0.9 = Droite, 0.1 = Haut
-    }
+    
 
     private void CheckMarketLocation()
     {
@@ -405,64 +379,6 @@ public class CarDealership : Script
         {
             isPlayerInMarket = false; // Le joueur quitte la zone
         }
-    }
-
-    // Vérifie si le joueur est dans la zone de blanchiment
-    private void CheckLaunderingLocation()
-    {
-        Vector3 playerPosition = Game.Player.Character.Position;
-
-        if (playerPosition.DistanceTo(launderingLocation) <= 5.0f) // Rayon de 5 mètres
-        {
-            // Notification indiquant que le joueur est dans la zone
-            Notification.Show("~b~You are at the money laundering spot! Press ~y~E~b~ to launder dirty money.");
-        }
-    }
-
-    private void ShowMarketNotification()
-    {
-        // Affiche une notification pour indiquer l'entrée dans la zone
-        Notification.Show("~y~You are at the black market! Press ~b~E~y~ to sell a vehicle.");
-        isNotificationVisible = true;
-        notificationStartTime = DateTime.Now;
-    }
-
-    private void HandleNotificationTimeout()
-    {
-        // Vérifie si la notification doit disparaître
-        if (isNotificationVisible && (DateTime.Now - notificationStartTime).TotalSeconds > 5)
-        {
-            isNotificationVisible = false;
-        }
-    }
-
-    private void DrawMarketLocation()
-    {
-        // Dessine un marqueur rouge sur l'emplacement du marché noir
-        World.DrawMarker(
-            MarkerType.VerticalCylinder,
-            marketLocation,
-            Vector3.Zero,
-            Vector3.Zero,
-            new Vector3(3.0f, 3.0f, 0.5f),
-            Color.Red,
-            false,
-            false
-        );
-    }
-    private void DrawLaunderingLocation()
-    {
-        // Dessine un marqueur rouge sur l'emplacement du marché noir
-        World.DrawMarker(
-            MarkerType.VerticalCylinder,
-            launderingLocation,
-            Vector3.Zero,
-            Vector3.Zero,
-            new Vector3(3.0f, 3.0f, 0.5f),
-            Color.Red,
-            false,
-            false
-        );
     }
 
     private void TrySellVehicle()
@@ -502,6 +418,73 @@ public class CarDealership : Script
             // Notification si le joueur est à pied
             Notification.Show("~r~You must be in a vehicle to sell it!");
         }
+    }
+
+    private void SellVehicle(Vehicle vehicle)
+    {
+        // Calcule le prix basé sur les dégâts et le type de véhicule
+        int price = CalculatePriceBasedOnTypeAndDamage(vehicle);
+
+        // Ajoute l'argent au joueur
+        dirtyMoney += price; // Ajoute l'argent au montant d'argent sale
+        SaveDirtyMoney(); // Sauvegarde l'argent sale
+
+        // Supprime la voiture après la vente
+        vehicle.Delete();
+
+        // Affiche une notification confirmant la vente
+        Notification.Show($"~g~Car sold for ${price} !");
+
+        // Déplace le marché noir à sa position initiale
+        marketLocation = new Vector3(170.8461f, 6359.0230f, 31.4532f); // Position initiale
+        UpdateBlips(); // Met à jour le blip pour refléter la nouvelle position
+        Notification.Show("~y~The black market has returned to its initial location.");
+    }
+
+    
+    private void DrawMarketLocation()
+    {
+        // Dessine un marqueur rouge sur l'emplacement du marché noir
+        World.DrawMarker(
+            MarkerType.VerticalCylinder,
+            marketLocation,
+            Vector3.Zero,
+            Vector3.Zero,
+            new Vector3(3.0f, 3.0f, 0.5f),
+            Color.Red,
+            false,
+            false
+        );
+    }
+
+
+    /// ------------- Laundering Methods -------------
+
+        // Vérifie si le joueur est dans la zone de blanchiment
+    private void CheckLaunderingLocation()
+    {
+        Vector3 playerPosition = Game.Player.Character.Position;
+
+        if (playerPosition.DistanceTo(launderingLocation) <= 5.0f) // Rayon de 5 mètres
+        {
+            // Notification indiquant que le joueur est dans la zone
+            Notification.Show("~b~You are at the money laundering spot! Press ~y~E~b~ to launder dirty money.");
+        }
+    }
+
+     private void DrawLaunderingLocation()
+    {
+        // Dessine un marqueur rouge sur l'emplacement du marché noir
+        World.DrawMarker(
+            MarkerType.VerticalCylinder,
+            launderingLocation,
+            Vector3.Zero,
+            Vector3.Zero,
+            new Vector3(3.0f, 3.0f, 0.5f),
+            Color.Red,
+            false,
+            false
+        );
     }
 
     private void TryLaunderingMoney()
@@ -552,30 +535,97 @@ public class CarDealership : Script
         }
     }
 
-
-
-    private void SellVehicle(Vehicle vehicle)
+    private bool IsDetectedDuringLaundering()
     {
-        // Calcule le prix basé sur les dégâts et le type de véhicule
-        int price = CalculatePriceBasedOnTypeAndDamage(vehicle);
+        Random random = new Random();
+        int chance = random.Next(0, 101); // Génère un nombre aléatoire entre 0 et 100
+        int detectionRisk = Math.Min(dirtyMoney / 1000, 50); // Risque de détection basé sur l'argent sale 50% max
+        return chance <= detectionRisk; // Retourne vrai si le joueur est détecté
+    }
 
-        // Ajoute l'argent au joueur
-        dirtyMoney += price; // Ajoute l'argent au montant d'argent sale
-        SaveDirtyMoney(); // Sauvegarde l'argent sale
+    /// -------------- Utility Methods --------------
+    
+    
+    private float GetCorrectedGroundHeight(Vector3 position)
+    {
+        RaycastResult raycast = World.Raycast(position + new Vector3(0, 0, 50), position + new Vector3(0, 0, -50), IntersectFlags.Everything);
+        if (raycast.DidHit)
+        {
+            return raycast.HitPosition.Z;
+        }
+        return position.Z; // Si le raycast échoue, retourne la hauteur originale
+    }
 
-        // Supprime la voiture après la vente
-        vehicle.Delete();
+    
+    private void ShowMarketNotification()
+    {
+        // Affiche une notification pour indiquer l'entrée dans la zone
+        Notification.Show("~y~You are at the black market! Press ~b~E~y~ to sell a vehicle.");
+        isNotificationVisible = true;
+        notificationStartTime = DateTime.Now;
+    }
 
-        // Affiche une notification confirmant la vente
-        Notification.Show($"~g~Car sold for ${price} !");
+    private void HandleNotificationTimeout()
+    {
+        // Vérifie si la notification doit disparaître
+        if (isNotificationVisible && (DateTime.Now - notificationStartTime).TotalSeconds > 5)
+        {
+            isNotificationVisible = false;
+        }
+    }
+        private bool IsVehicleStolen(Vehicle vehicle)
+    {
+        // Considère le véhicule comme volé si le joueur est le conducteur et que le véhicule n'est pas "propriétaire" du joueur
+        return vehicle.Driver == Game.Player.Character && !vehicle.IsPersistent;
+    }
 
-        // Déplace le marché noir à sa position initiale
-        marketLocation = new Vector3(170.8461f, 6359.0230f, 31.4532f); // Position initiale
-        UpdateBlips(); // Met à jour le blip pour refléter la nouvelle position
-        Notification.Show("~y~The black market has returned to its initial location.");
+    private int CalculatePimpValue(Vehicle vehicle)
+    {
+        int pimpValue = 0;
+
+        // Vérifie si un moteur amélioré est installé
+        if (vehicle.Mods[VehicleModType.Engine].Index != -1)
+        {
+            pimpValue += 5000; // Ajoute 5000$ pour un moteur amélioré
+        }
+
+        // Vérifie si des freins améliorés sont installés
+        if (vehicle.Mods[VehicleModType.Brakes].Index != -1)
+        {
+            pimpValue += 3000; // Ajoute 3000$ pour des freins améliorés
+        }
+
+        // Vérifie si une transmission améliorée est installée
+        if (vehicle.Mods[VehicleModType.Transmission].Index != -1)
+        {
+            pimpValue += 4000; // Ajoute 4000$ pour une transmission améliorée
+        }
+
+        // Vérifie si un turbo est installé
+        if (vehicle.Mods[VehicleToggleModType.Turbo].IsInstalled)
+        {
+            pimpValue += 6000; // Ajoute 6000$ pour un turbo
+        }
+
+        // Vérifie si des néons sont installés
+        if (vehicle.Mods.HasNeonLights)
+        {
+            pimpValue += 2000; // Ajoute 2000$ pour des néons
+        }
+
+        // Vérifie si un spoiler est installé
+        if (vehicle.Mods[VehicleModType.Spoilers].Index != -1)
+        {
+            pimpValue += 1500; // Ajoute 1500$ pour un spoiler
+        }
+
+        return pimpValue;
     }
 
 
+    /// -------------- Save/Load Methods -------------- 
+    
+        
     private void SaveDirtyMoney()
     {
         try
@@ -609,6 +659,88 @@ public class CarDealership : Script
         }
 
     }
+    
+    /// ---------------------------------------------
+    /// -------------- Display Methods --------------
+    /// ---------------------------------------------
+
+    private void DisplayDirtyMoney()
+    {
+        string text = $"Dirty Money: ${dirtyMoney}"; // Texte à afficher
+
+        // Configure la police, taille et couleur
+        Function.Call(Hash.SET_TEXT_FONT, 0); // Police standard
+        Function.Call(Hash.SET_TEXT_SCALE, 0.4f, 0.4f); // Taille du texte
+        Function.Call(Hash.SET_TEXT_COLOUR, 255, 0, 0, 255); // Couleur rouge (RGBA)
+        Function.Call(Hash.SET_TEXT_OUTLINE); // Ajoute une bordure pour la lisibilité
+
+        // Prépare le texte
+        Function.Call(Hash.BEGIN_TEXT_COMMAND_DISPLAY_TEXT, "STRING");
+        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, text);
+
+        // Affiche le texte à l'écran (position X, Y)
+        Function.Call(Hash.END_TEXT_COMMAND_DISPLAY_TEXT, 0.9f, 0.3f); // 0.9 = Droite, 0.1 = Haut
+    }
+
+    /// --------------- Blip Methods ---------------
+    
+    private void CreateMarketBlip()
+    {
+        // Supprime le blip précédent s'il existe
+        if (marketBlip != null)
+        {
+            marketBlip.Delete();
+        }
+
+        // Crée un nouveau blip pour le marché noir
+        marketBlip = World.CreateBlip(marketLocation);
+        marketBlip.Sprite = BlipSprite.GunCar;
+        marketBlip.Color = BlipColor.Red;
+        marketBlip.Name = "Black Market";
+        marketBlip.Scale = 1.0f;
+    }
+
+
+    private void CreateLaunderingBlip()
+    {
+        // Supprime le blip précédent s'il existe
+        if (launderingBlip != null)
+        {
+            launderingBlip.Delete();
+        }
+
+        // Crée un nouveau blip pour le blanchiment d'argent
+        launderingBlip = World.CreateBlip(launderingLocation);
+        launderingBlip.Sprite = BlipSprite.Lester; // Icône par défaut (peut être remplacée par une autre)
+        launderingBlip.Color = BlipColor.RedLight; // Couleur bleue pour différencier du marché noir
+        launderingBlip.Name = "Money Laundering";
+        launderingBlip.Scale = 1.0f;
+    }
+    private void UpdateBlips()
+    {
+        CreateMarketBlip();
+        CreateLaunderingBlip();
+    }
+
+    // remove blips if there is more than 2 blip in the map
+    private void RemoveBlips()
+    {
+        Blip[] blips = World.GetAllBlips();
+        if (blips.Length > 2)
+        {
+            foreach (Blip blip in blips)
+            {
+                if (blip != marketBlip && blip != launderingBlip)
+                {
+                    blip.Delete();
+                }
+            }
+        }
+    }
+
+    /// ---------------------------------------------------------
+    /// -------------- Price Calculation Methods ----------------
+    /// ---------------------------------------------------------
 
     private int CalculatePriceBasedOnTypeAndDamage(Vehicle vehicle)
     {
@@ -664,116 +796,13 @@ public class CarDealership : Script
     }
 
 
-    private bool IsVehicleStolen(Vehicle vehicle)
-    {
-        // Considère le véhicule comme volé si le joueur est le conducteur et que le véhicule n'est pas "propriétaire" du joueur
-        return vehicle.Driver == Game.Player.Character && !vehicle.IsPersistent;
-    }
 
 
-    private void CreateMarketBlip()
-    {
-        // Supprime le blip précédent s'il existe
-        if (marketBlip != null)
-        {
-            marketBlip.Delete();
-        }
 
-        // Crée un nouveau blip pour le marché noir
-        marketBlip = World.CreateBlip(marketLocation);
-        marketBlip.Sprite = BlipSprite.GunCar;
-        marketBlip.Color = BlipColor.Red;
-        marketBlip.Name = "Black Market";
-        marketBlip.Scale = 1.0f;
-    }
+    
 
 
-    private void CreateLaunderingBlip()
-    {
-        // Supprime le blip précédent s'il existe
-        if (launderingBlip != null)
-        {
-            launderingBlip.Delete();
-        }
-
-        // Crée un nouveau blip pour le blanchiment d'argent
-        launderingBlip = World.CreateBlip(launderingLocation);
-        launderingBlip.Sprite = BlipSprite.Lester; // Icône par défaut (peut être remplacée par une autre)
-        launderingBlip.Color = BlipColor.RedLight; // Couleur bleue pour différencier du marché noir
-        launderingBlip.Name = "Money Laundering";
-        launderingBlip.Scale = 1.0f;
-    }
-    private void UpdateBlips()
-    {
-        CreateMarketBlip();
-        CreateLaunderingBlip();
-    }
-
-    // remove blips if there is more than 2 blip in the map
-    private void RemoveBlips()
-    {
-        Blip[] blips = World.GetAllBlips();
-        if (blips.Length > 2)
-        {
-            foreach (Blip blip in blips)
-            {
-                if (blip != marketBlip && blip != launderingBlip)
-                {
-                    blip.Delete();
-                }
-            }
-        }
-    }
-
-
-    private bool IsDetectedDuringLaundering()
-    {
-        Random random = new Random();
-        int chance = random.Next(0, 101); // Génère un nombre aléatoire entre 0 et 100
-        int detectionRisk = Math.Min(dirtyMoney / 1000, 50); // Risque de détection basé sur l'argent sale 50% max
-        return chance <= detectionRisk; // Retourne vrai si le joueur est détecté
-    }
-    private int CalculatePimpValue(Vehicle vehicle)
-    {
-        int pimpValue = 0;
-
-        // Vérifie si un moteur amélioré est installé
-        if (vehicle.Mods[VehicleModType.Engine].Index != -1)
-        {
-            pimpValue += 5000; // Ajoute 5000$ pour un moteur amélioré
-        }
-
-        // Vérifie si des freins améliorés sont installés
-        if (vehicle.Mods[VehicleModType.Brakes].Index != -1)
-        {
-            pimpValue += 3000; // Ajoute 3000$ pour des freins améliorés
-        }
-
-        // Vérifie si une transmission améliorée est installée
-        if (vehicle.Mods[VehicleModType.Transmission].Index != -1)
-        {
-            pimpValue += 4000; // Ajoute 4000$ pour une transmission améliorée
-        }
-
-        // Vérifie si un turbo est installé
-        if (vehicle.Mods[VehicleToggleModType.Turbo].IsInstalled)
-        {
-            pimpValue += 6000; // Ajoute 6000$ pour un turbo
-        }
-
-        // Vérifie si des néons sont installés
-        if (vehicle.Mods.HasNeonLights)
-        {
-            pimpValue += 2000; // Ajoute 2000$ pour des néons
-        }
-
-        // Vérifie si un spoiler est installé
-        if (vehicle.Mods[VehicleModType.Spoilers].Index != -1)
-        {
-            pimpValue += 1500; // Ajoute 1500$ pour un spoiler
-        }
-
-        return pimpValue;
-    }
+    
+    
 
 }
