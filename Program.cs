@@ -12,11 +12,12 @@ using LemonUI.Menus;
 public class CarDealership : Script
 {
     private ObjectPool menuPool;
+    private ObjectPool blackMarketMenuPool;
     private NativeMenu stashMenu;
     private NativeMenu confirmMenu;
+    private NativeMenu blackMarketMenu;
 
     private readonly CustomiFruit _ifruit = new CustomiFruit();
-    private readonly iFruitContact blackMarketContact = new iFruitContact("Black Market");
     private Vector3 marketLocation = new Vector3(170.8461f, 6359.0230f, 31.4532f); // Localisation du marché noir
     private readonly List<Vector3> blackMarketLocations = new List<Vector3>
 {
@@ -71,7 +72,8 @@ public class CarDealership : Script
     private Blip deliveryBlip;
     private int maxCarriedDirtyMoney = 350000; // Montant maximum d'argent sale pouvant être transporté
     private int storedDirtyMoney = 0; // Argent sale stocké dans le coffre
-    private Vector3 stashLocation = new Vector3(-812.3509f, 177.9144f, 76.7408f); // Localisation du coffre
+    private int blackMarketStoredMoney = 0; // Argent sale stocké dans le coffre du marché noir
+    private Vector3 stashLocation = new Vector3(-826.8317f, 180.2720f, 71.4480f); // Localisation du coffre
     private float stashRadius = 2.0f;
     private Blip stashBlip;
 
@@ -86,6 +88,7 @@ public class CarDealership : Script
         InitializePhone(); // Initialise le téléphone
         InitializeStash(); // Initialise le coffre
         InitializeStashMenu(); // Initialise le menu du coffre
+        InitializeBlackMarketMenu(); // Initialise le menu du marché noir
     }
 
     private void OnTick(object sender, System.EventArgs e)
@@ -101,6 +104,7 @@ public class CarDealership : Script
         CheckVehicleTheft(); // Vérifie si le joueur a volé un véhicule
         DeliverStolenVehicle();
         menuPool.Process(); // Met à jour le menu LemonUI
+        blackMarketMenuPool.Process(); // Met à jour le menu LemonUI
 
 
     }
@@ -115,13 +119,14 @@ public class CarDealership : Script
                 TryLaunderingMoney();
                 UpdateStashMenu();
             }
-            else if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+            else if (Game.Player.Character.Position.DistanceTo(stashLocation) < stashRadius)
             {
                 stashMenu.Visible = true; // Ouvre le menu LemonUI
             }
             else if (isPlayerInMarket)
             {
-                TrySellVehicle();
+                OpenBlackMarketMenu();
+                //TrySellVehicle();
                 UpdateStashMenu();
             }
             else
@@ -144,6 +149,108 @@ public class CarDealership : Script
         // }
     }
 
+    /// -------------- Black Market Menu Methods --------------
+    
+    private void InitializeBlackMarketMenu()
+    {
+        blackMarketMenuPool = new ObjectPool();
+        blackMarketMenu = new NativeMenu("Black Market", "Sell stolen vehicles.");
+
+        var vehicleInfo = new NativeItem("🚗 Vehicle: None");
+        var vehiclePrice = new NativeItem("💰 Price: $0");
+        var withdrawStoredMoney = new NativeItem($"💰 Withdraw Stored Money: ~g~ ${blackMarketStoredMoney}", "Take back your stored earnings.");
+        var sellVehicle = new NativeItem("✔ Sell Vehicle");
+        var cancel = new NativeItem("❌ Cancel");
+
+        vehicleInfo.Enabled = false;
+        vehiclePrice.Enabled = false;
+
+        sellVehicle.Activated += (sender, args) => ConfirmVehicleSale();
+        withdrawStoredMoney.Activated += (sender, args) => WithdrawBlackMarketMoney();
+        cancel.Activated += (sender, args) => blackMarketMenu.Visible = false;
+
+        blackMarketMenu.Add(vehicleInfo);
+        blackMarketMenu.Add(vehiclePrice);
+        blackMarketMenu.Add(withdrawStoredMoney);
+        blackMarketMenu.Add(sellVehicle);
+        blackMarketMenu.Add(cancel);
+
+        blackMarketMenuPool.Add(blackMarketMenu);
+    }
+
+    private void OpenBlackMarketMenu()
+    {
+        Vehicle playerVehicle = Game.Player.Character.CurrentVehicle;
+        if (playerVehicle == null)
+        {
+            Notification.Show("~r~You must be in a vehicle to sell it!");
+            return;
+        }
+
+        int salePrice = CalculatePriceBasedOnTypeAndDamage(playerVehicle);
+
+        blackMarketMenu.Items[0].Title = $"🚗 Vehicle: {playerVehicle.DisplayName}";
+        blackMarketMenu.Items[1].Title = $"💰 Price: ~g~ ${salePrice}";
+
+        blackMarketMenu.Visible = true;
+    }
+
+    private void ConfirmVehicleSale()
+{
+    Vehicle playerVehicle = Game.Player.Character.CurrentVehicle;
+    if (playerVehicle == null)
+    {
+        Notification.Show("~r~No vehicle detected!");
+        return;
+    }
+
+    int salePrice = CalculatePriceBasedOnTypeAndDamage(playerVehicle);
+    int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+
+    if (availableSpace >= salePrice)
+    {
+        // Si tout l'argent peut être transporté
+        dirtyMoney += salePrice;
+        SaveDirtyMoney();
+        Notification.Show($"~g~Vehicle sold for ${salePrice}!");
+    }
+    else
+    {
+        // Stocke l'excédent au Black Market
+        dirtyMoney = maxCarriedDirtyMoney; // Atteint la limite max
+        blackMarketStoredMoney += (salePrice - availableSpace);
+        blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
+        SaveDirtyMoney();
+        Notification.Show($"~g~Vehicle sold! You reached the money limit. ${salePrice - availableSpace} stored at Black Market.");
+    }
+
+    playerVehicle.Delete(); // Supprime le véhicule après la vente
+    SaveDirtyMoney(); // Sauvegarde l'argent sale
+
+    blackMarketMenu.Visible = false;
+}
+    private void WithdrawBlackMarketMoney()
+{
+    if (blackMarketStoredMoney <= 0)
+    {
+        Notification.Show("~r~No stored money available!");
+        return;
+    }
+
+    int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+    int amountToWithdraw = Math.Min(blackMarketStoredMoney, availableSpace);
+
+    dirtyMoney += amountToWithdraw;
+    blackMarketStoredMoney -= amountToWithdraw;
+    blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
+
+    Notification.Show($"~g~You withdrew ${amountToWithdraw} from the Black Market!");
+
+    SaveDirtyMoney();
+}
+
+
+
     /// -------------- Stash Menu Methods ----------------
 
     private void InitializeStashMenu()
@@ -151,7 +258,7 @@ public class CarDealership : Script
     menuPool = new ObjectPool();
     stashMenu = new NativeMenu("💰 Money Stash", "Manage your dirty money");
 
-    var stashInfo = new NativeItem($"💰 Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}");
+    var stashInfo = new NativeItem($"~r~Stash: ${storedDirtyMoney} | ~y~ Carried: ${dirtyMoney}");
     stashInfo.Enabled = false; // Désactiver l'interaction (juste une info)
 
     // Liste fixe des montants disponibles pour le dépôt/retrait
@@ -221,19 +328,10 @@ public class CarDealership : Script
     confirmMenu.Visible = true;
 }
 
-
-
-
-
-
-
     private void UpdateStashMenu()
 {
     stashMenu.Items[0].Title = $"💰 Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}";
 }
-
-
-
 
 
 
@@ -855,44 +953,56 @@ public class CarDealership : Script
 {
     try
     {
-        string data = $"{dirtyMoney},{storedDirtyMoney}"; // Format : "dirtyMoney,storedDirtyMoney"
-        System.IO.File.WriteAllText("scripts/dirty_money.txt", data);
+        string data = $"{dirtyMoney},{storedDirtyMoney},{blackMarketStoredMoney}";
+        System.IO.File.WriteAllText(saveFilePath, data);
     }
     catch (Exception ex)
     {
-        Notification.Show("~r~Error saving dirty money to file!");
+        Notification.Show($"~r~Error saving dirty money: {ex.Message}");
     }
 }
+
 
 
     private void LoadDirtyMoney()
 {
     try
     {
-        if (System.IO.File.Exists("scripts/dirty_money.txt"))
+        if (System.IO.File.Exists(saveFilePath))
         {
-            string[] values = System.IO.File.ReadAllText("scripts/dirty_money.txt").Split(',');
-            
-            // Vérifie que le fichier contient bien deux valeurs avant de les affecter
-            if (values.Length == 2)
+            string[] values = System.IO.File.ReadAllText(saveFilePath).Split(',');
+
+            // Vérifie que le fichier contient bien 3 valeurs
+            if (values.Length == 3)
             {
                 dirtyMoney = int.Parse(values[0]);
                 storedDirtyMoney = int.Parse(values[1]);
+                blackMarketStoredMoney = int.Parse(values[2]);
+            }
+            else
+            {
+                Notification.Show("~r~Error: Incorrect save file format. Resetting values.");
+                dirtyMoney = 0;
+                storedDirtyMoney = 0;
+                blackMarketStoredMoney = 0;
             }
         }
         else
         {
             dirtyMoney = 0;
             storedDirtyMoney = 0;
+            blackMarketStoredMoney = 0;
         }
     }
     catch (Exception ex)
     {
-        Notification.Show("~r~Error loading dirty money from file!");
+        Notification.Show($"~r~Error loading dirty money: {ex.Message}");
         dirtyMoney = 0;
         storedDirtyMoney = 0;
+        blackMarketStoredMoney = 0;
     }
 }
+
 
 
     /// ---------------------------------------------
