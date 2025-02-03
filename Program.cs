@@ -37,6 +37,7 @@ public class CarDealership : Script
     private Blip marketBlip;
     private Blip launderingBlip;
     private int dirtyMoney = 0;
+    private int dirtyMoneyFranklin, dirtyMoneyTrevor, dirtyMoneyMichael = 0;
     private string saveFilePath = "scripts\\save.txt";
     private bool playerHasSoldCar = false;
 
@@ -150,7 +151,7 @@ public class CarDealership : Script
     }
 
     /// -------------- Black Market Menu Methods --------------
-    
+
     private void InitializeBlackMarketMenu()
     {
         blackMarketMenuPool = new ObjectPool();
@@ -196,142 +197,142 @@ public class CarDealership : Script
     }
 
     private void ConfirmVehicleSale()
-{
-    Vehicle playerVehicle = Game.Player.Character.CurrentVehicle;
-    if (playerVehicle == null)
     {
-        Notification.Show("~r~No vehicle detected!");
-        return;
+        Vehicle playerVehicle = Game.Player.Character.CurrentVehicle;
+        if (playerVehicle == null)
+        {
+            Notification.Show("~r~No vehicle detected!");
+            return;
+        }
+
+        int salePrice = CalculatePriceBasedOnTypeAndDamage(playerVehicle);
+        int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+
+        if (availableSpace >= salePrice)
+        {
+            // Si tout l'argent peut être transporté
+            GetPlayerDirtyMoney() += salePrice;
+            SaveDirtyMoney();
+            Notification.Show($"~g~Vehicle sold for ${salePrice}!");
+        }
+        else
+        {
+            // Stocke l'excédent au Black Market
+            dirtyMoney = maxCarriedDirtyMoney; // Atteint la limite max
+            blackMarketStoredMoney += (salePrice - availableSpace);
+            blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
+            SaveDirtyMoney();
+            Notification.Show($"~g~Vehicle sold! You reached the money limit. ${salePrice - availableSpace} stored at Black Market.");
+        }
+
+        playerVehicle.Delete(); // Supprime le véhicule après la vente
+        SaveDirtyMoney(); // Sauvegarde l'argent sale
+
+        blackMarketMenu.Visible = false;
     }
-
-    int salePrice = CalculatePriceBasedOnTypeAndDamage(playerVehicle);
-    int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
-
-    if (availableSpace >= salePrice)
-    {
-        // Si tout l'argent peut être transporté
-        dirtyMoney += salePrice;
-        SaveDirtyMoney();
-        Notification.Show($"~g~Vehicle sold for ${salePrice}!");
-    }
-    else
-    {
-        // Stocke l'excédent au Black Market
-        dirtyMoney = maxCarriedDirtyMoney; // Atteint la limite max
-        blackMarketStoredMoney += (salePrice - availableSpace);
-        blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
-        SaveDirtyMoney();
-        Notification.Show($"~g~Vehicle sold! You reached the money limit. ${salePrice - availableSpace} stored at Black Market.");
-    }
-
-    playerVehicle.Delete(); // Supprime le véhicule après la vente
-    SaveDirtyMoney(); // Sauvegarde l'argent sale
-
-    blackMarketMenu.Visible = false;
-}
     private void WithdrawBlackMarketMoney()
-{
-    if (blackMarketStoredMoney <= 0)
     {
-        Notification.Show("~r~No stored money available!");
-        return;
+        if (blackMarketStoredMoney <= 0)
+        {
+            Notification.Show("~r~No stored money available!");
+            return;
+        }
+
+        int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+        int amountToWithdraw = Math.Min(blackMarketStoredMoney, availableSpace);
+
+        GetPlayerDirtyMoney() += amountToWithdraw;
+        blackMarketStoredMoney -= amountToWithdraw;
+        blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
+
+        Notification.Show($"~g~You withdrew ${amountToWithdraw} from the Black Market!");
+
+        SaveDirtyMoney();
     }
-
-    int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
-    int amountToWithdraw = Math.Min(blackMarketStoredMoney, availableSpace);
-
-    dirtyMoney += amountToWithdraw;
-    blackMarketStoredMoney -= amountToWithdraw;
-    blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
-
-    Notification.Show($"~g~You withdrew ${amountToWithdraw} from the Black Market!");
-
-    SaveDirtyMoney();
-}
 
 
 
     /// -------------- Stash Menu Methods ----------------
 
     private void InitializeStashMenu()
-{
-    menuPool = new ObjectPool();
-    stashMenu = new NativeMenu("💰 Money Stash", "Manage your dirty money");
-
-    var stashInfo = new NativeItem($"~r~Stash: ${storedDirtyMoney} | ~y~ Carried: ${dirtyMoney}");
-    stashInfo.Enabled = false; // Désactiver l'interaction (juste une info)
-
-    // Liste fixe des montants disponibles pour le dépôt/retrait
-    var amountList = new List<int> { 100, 500, 1000, 5000, 8000, 10000, 15000, 35000, 50000, 100000 };
-    var amountSelector = new NativeListItem<int>("Amount", amountList.ToArray());
-
-    var depositItem = new NativeItem("Deposit", "Store dirty money in the stash.");
-    var withdrawItem = new NativeItem("Withdraw", "Take dirty money from the stash.");
-
-    depositItem.Activated += (sender, args) =>
     {
-        ConfirmTransaction(true, amountSelector.SelectedItem);
-    };
+        menuPool = new ObjectPool();
+        stashMenu = new NativeMenu("💰 Money Stash", "Manage your dirty money");
 
-    withdrawItem.Activated += (sender, args) =>
-    {
-        ConfirmTransaction(false, amountSelector.SelectedItem);
-    };
+        var stashInfo = new NativeItem($"~r~Stash: ${storedDirtyMoney} | ~y~ Carried: ${dirtyMoney}");
+        stashInfo.Enabled = false; // Désactiver l'interaction (juste une info)
 
-    stashMenu.Add(stashInfo);
-    stashMenu.Add(amountSelector);
-    stashMenu.Add(depositItem);
-    stashMenu.Add(withdrawItem);
-    menuPool.Add(stashMenu);
-}
+        // Liste fixe des montants disponibles pour le dépôt/retrait
+        var amountList = new List<int> { 100, 500, 1000, 5000, 8000, 10000, 15000, 35000, 50000, 100000 };
+        var amountSelector = new NativeListItem<int>("Amount", amountList.ToArray());
+
+        var depositItem = new NativeItem("Deposit", "Store dirty money in the stash.");
+        var withdrawItem = new NativeItem("Withdraw", "Take dirty money from the stash.");
+
+        depositItem.Activated += (sender, args) =>
+        {
+            ConfirmTransaction(true, amountSelector.SelectedItem);
+        };
+
+        withdrawItem.Activated += (sender, args) =>
+        {
+            ConfirmTransaction(false, amountSelector.SelectedItem);
+        };
+
+        stashMenu.Add(stashInfo);
+        stashMenu.Add(amountSelector);
+        stashMenu.Add(depositItem);
+        stashMenu.Add(withdrawItem);
+        menuPool.Add(stashMenu);
+    }
 
 
     private void ConfirmTransaction(bool isDeposit, int amount)
-{
-    if (amount <= 0)
     {
-        Notification.Show("~r~Invalid amount selected!");
-        return;
+        if (amount <= 0)
+        {
+            Notification.Show("~r~Invalid amount selected!");
+            return;
+        }
+
+        stashMenu.Visible = false; // Ferme le menu du stash avant d'afficher la confirmation
+
+        string action = isDeposit ? "deposit" : "withdraw";
+        string message = $"Are you sure you want to {action} ${amount}?";
+
+        confirmMenu = new NativeMenu("Confirm Transaction", message);
+        menuPool.Add(confirmMenu);
+
+        var confirmItem = new NativeItem("✔ Confirm");
+        var cancelItem = new NativeItem("❌ Cancel");
+
+        confirmItem.Activated += (sender, args) =>
+        {
+            if (isDeposit)
+                TryStoreDirtyMoney(amount);
+            else
+                TryWithdrawDirtyMoney(amount);
+
+            UpdateStashMenu();
+            confirmMenu.Visible = false;
+            stashMenu.Visible = true;
+        };
+
+        cancelItem.Activated += (sender, args) =>
+        {
+            confirmMenu.Visible = false;
+            stashMenu.Visible = true;
+        };
+
+        confirmMenu.Add(confirmItem);
+        confirmMenu.Add(cancelItem);
+        confirmMenu.Visible = true;
     }
 
-    stashMenu.Visible = false; // Ferme le menu du stash avant d'afficher la confirmation
-
-    string action = isDeposit ? "deposit" : "withdraw";
-    string message = $"Are you sure you want to {action} ${amount}?";
-
-    confirmMenu = new NativeMenu("Confirm Transaction", message);
-    menuPool.Add(confirmMenu);
-
-    var confirmItem = new NativeItem("✔ Confirm");
-    var cancelItem = new NativeItem("❌ Cancel");
-
-    confirmItem.Activated += (sender, args) =>
-    {
-        if (isDeposit)
-            TryStoreDirtyMoney(amount);
-        else
-            TryWithdrawDirtyMoney(amount);
-
-        UpdateStashMenu();
-        confirmMenu.Visible = false;
-        stashMenu.Visible = true;
-    };
-
-    cancelItem.Activated += (sender, args) =>
-    {
-        confirmMenu.Visible = false;
-        stashMenu.Visible = true;
-    };
-
-    confirmMenu.Add(confirmItem);
-    confirmMenu.Add(cancelItem);
-    confirmMenu.Visible = true;
-}
-
     private void UpdateStashMenu()
-{
-    stashMenu.Items[0].Title = $"💰 Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}";
-}
+    {
+        stashMenu.Items[0].Title = $"💰 Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}";
+    }
 
 
 
@@ -346,60 +347,60 @@ public class CarDealership : Script
     }
 
     private void TryStoreDirtyMoney(int amount)
-{
-    if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
     {
-        if (dirtyMoney >= amount)
+        if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
         {
-            storedDirtyMoney += amount;
-            dirtyMoney -= amount;
-            Notification.Show($"~g~You stored ${amount} in the stash!");
-            SaveDirtyMoney();
-            UpdateStashMenu();
+            if (dirtyMoney >= amount)
+            {
+                storedDirtyMoney += amount;
+                dirtyMoney -= amount;
+                Notification.Show($"~g~You stored ${amount} in the stash!");
+                SaveDirtyMoney();
+                UpdateStashMenu();
+            }
+            else
+            {
+                Notification.Show("~r~Not enough dirty money to store!");
+            }
         }
         else
         {
-            Notification.Show("~r~Not enough dirty money to store!");
+            Notification.Show("~r~You are not at the stash location!");
         }
     }
-    else
-    {
-        Notification.Show("~r~You are not at the stash location!");
-    }
-}
 
 
     private void TryWithdrawDirtyMoney(int amount)
-{
-    if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
     {
-        if (storedDirtyMoney >= amount)
+        if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
         {
-            int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
-            int amountToWithdraw = Math.Min(amount, availableSpace);
-
-            storedDirtyMoney -= amountToWithdraw;
-            dirtyMoney += amountToWithdraw;
-            Notification.Show($"~g~You withdrew ${amountToWithdraw} from the stash!");
-            SaveDirtyMoney();
-
-            if (amountToWithdraw < amount)
+            if (storedDirtyMoney >= amount)
             {
-                Notification.Show("~y~You couldn't withdraw the full amount due to carry limit.");
-            }
+                int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+                int amountToWithdraw = Math.Min(amount, availableSpace);
 
-            UpdateStashMenu();
+                storedDirtyMoney -= amountToWithdraw;
+                GetPlayerDirtyMoney() += amountToWithdraw;
+                Notification.Show($"~g~You withdrew ${amountToWithdraw} from the stash!");
+                SaveDirtyMoney();
+
+                if (amountToWithdraw < amount)
+                {
+                    Notification.Show("~y~You couldn't withdraw the full amount due to carry limit.");
+                }
+
+                UpdateStashMenu();
+            }
+            else
+            {
+                Notification.Show("~r~Not enough money in stash!");
+            }
         }
         else
         {
-            Notification.Show("~r~Not enough money in stash!");
+            Notification.Show("~r~You are not at the stash location!");
         }
     }
-    else
-    {
-        Notification.Show("~r~You are not at the stash location!");
-    }
-}
 
 
 
@@ -414,7 +415,7 @@ public class CarDealership : Script
         int price = CalculatePriceBasedOnTypeAndDamage(vehicle);
         int maxEarnings = maxCarriedDirtyMoney - dirtyMoney;
         int actualEarnings = Math.Min(price, maxEarnings);
-        dirtyMoney += actualEarnings;
+        GetPlayerDirtyMoney() += actualEarnings;
         vehicle.Delete();
         Notification.Show($"~g~Car sold for ${actualEarnings}!");
         SaveDirtyMoney();
@@ -545,7 +546,7 @@ public class CarDealership : Script
                 targetVehicle.Delete();
                 targetVehicle = null;
                 activeMission = null; // Réinitialise la mission
-                dirtyMoney += 120000; // Récompense pour la livraison
+                GetPlayerDirtyMoney() += 120000; // Récompense pour la livraison
                 SaveDirtyMoney(); // Sauvegarde l'argent sale
 
                 // Supprime le blip de livraison s'il existe
@@ -735,7 +736,7 @@ public class CarDealership : Script
         int price = CalculatePriceBasedOnTypeAndDamage(vehicle);
 
         // Ajoute l'argent au joueur
-        dirtyMoney += price; // Ajoute l'argent au montant d'argent sale
+        GetPlayerDirtyMoney() += price; // Ajoute l'argent au montant d'argent sale
         SaveDirtyMoney(); // Sauvegarde l'argent sale
 
         // Supprime la voiture après la vente
@@ -773,7 +774,7 @@ public class CarDealership : Script
             stashLocation,
             Vector3.Zero,
             Vector3.Zero,
-            new Vector3(stashRadius, stashRadius , 0.5f),
+            new Vector3(stashRadius, stashRadius, 0.5f),
             Color.Green,
             false,
             false
@@ -811,52 +812,57 @@ public class CarDealership : Script
     }
 
     private void TryLaunderingMoney()
+{
+    if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
     {
+        if (Game.Player.WantedLevel > 0)
+        {
+            Notification.Show("~r~You must lose your wanted level before laundering dirty money!");
+            return;
+        }
 
-        if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
+        ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
 
-            if (Game.Player.WantedLevel > 0)
+        if (playerDirtyMoney > 0)
+        {
+            // Vérifie si le joueur est détecté
+            if (IsDetectedDuringLaundering())
             {
-                Notification.Show("~r~You must lose your wanted level before laundering dirty money !");
+                // Ajoute des étoiles de recherche
+                Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player, 3, false); // 3 étoiles
+                Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player, false);
+
+                // Affiche une notification d'alerte
+                Notification.Show("~r~Laundry detected! Hostiles incoming!");
                 return;
             }
+
+            // Calcule l'argent blanchi avec un taux de conversion
+            int convertedMoney = (int)(playerDirtyMoney * 0.8); // 80 % converti
+            int fee = playerDirtyMoney - convertedMoney; // Perte due au blanchiment
+
+            // Ajoute l'argent converti au joueur
+            Game.Player.Money += convertedMoney;
+
+            // Réinitialise l'argent sale pour ce personnage
+            playerDirtyMoney = 0;
+            SaveDirtyMoney(); // Sauvegarde l'argent sale
+
+            // Affiche une notification confirmant le blanchiment
+            Notification.Show($"~b~Laundry successful! ${convertedMoney} laundered, ${fee} launder fee.");
+        }
+        else
         {
-            if (dirtyMoney > 0)
-            {
-                // Vérifie si le joueur est détecté
-                if (IsDetectedDuringLaundering())
-                {
-                    // Ajoute des étoiles de recherche
-                    Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player, 3, false); // 3 étoiles
-                    Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player, false);
-
-                    // Affiche une notification d'alerte
-                    Notification.Show("~r~Laundry detected! Hostiles incoming!");
-                    // SpawnHostiles(); // Fait apparaître des ennemis
-                    return;
-                }
-
-                // Calcule l'argent blanchi avec un taux de conversion
-                int convertedMoney = (int)(dirtyMoney * 0.8); // 80 % converti
-                int fee = dirtyMoney - convertedMoney; // Perte due au blanchiment
-
-                // Ajoute l'argent converti au joueur
-                Game.Player.Money += convertedMoney;
-
-                // Réinitialise l'argent sale
-                dirtyMoney = 0;
-                SaveDirtyMoney(); // Sauvegarde l'argent sale
-
-                // Affiche une notification confirmant le blanchiment
-                Notification.Show($"~b~Laundry successful! ${convertedMoney} launder, ${fee} launder fee.");
-            }
-            else
-            {
-                // Pas d'argent sale à blanchir
-                Notification.Show("~r~You don't have any dirty money to launder!");
-            }
+            // Pas d'argent sale à blanchir
+            Notification.Show("~r~You don't have any dirty money to launder!");
         }
     }
+    else
+    {
+        Notification.Show("~r~You are not at the laundering location!");
+    }
+}
+
 
     private bool IsDetectedDuringLaundering()
     {
@@ -867,6 +873,22 @@ public class CarDealership : Script
     }
 
     /// -------------- Utility Methods --------------
+
+    private ref int GetPlayerDirtyMoney()
+    {
+        switch ((uint)Game.Player.Character.Model.Hash)
+        {
+            case (uint)PedHash.Michael:
+                return ref dirtyMoneyMichael;
+            case (uint)PedHash.Franklin:
+                return ref dirtyMoneyFranklin;
+            case (uint)PedHash.Trevor:
+                return ref dirtyMoneyTrevor;
+            default:
+                return ref dirtyMoneyMichael;
+        }
+    }
+
 
 
     private float GetCorrectedGroundHeight(Vector3 position)
@@ -950,58 +972,59 @@ public class CarDealership : Script
 
 
     private void SaveDirtyMoney()
-{
-    try
     {
-        string data = $"{dirtyMoney},{storedDirtyMoney},{blackMarketStoredMoney}";
-        System.IO.File.WriteAllText(saveFilePath, data);
+        try
+        {
+            string data = $"{dirtyMoneyFranklin},{dirtyMoneyMichael},{dirtyMoneyTrevor},{storedDirtyMoney},{blackMarketStoredMoney}";
+            System.IO.File.WriteAllText(saveFilePath, data);
+        }
+        catch (Exception ex)
+        {
+            Notification.Show($"~r~Error saving dirty money: {ex.Message}");
+        }
     }
-    catch (Exception ex)
-    {
-        Notification.Show($"~r~Error saving dirty money: {ex.Message}");
-    }
-}
+
 
 
 
     private void LoadDirtyMoney()
-{
-    try
     {
-        if (System.IO.File.Exists(saveFilePath))
+        try
         {
-            string[] values = System.IO.File.ReadAllText(saveFilePath).Split(',');
+            if (System.IO.File.Exists(saveFilePath))
+            {
+                string[] values = System.IO.File.ReadAllText(saveFilePath).Split(',');
 
-            // Vérifie que le fichier contient bien 3 valeurs
-            if (values.Length == 3)
-            {
-                dirtyMoney = int.Parse(values[0]);
-                storedDirtyMoney = int.Parse(values[1]);
-                blackMarketStoredMoney = int.Parse(values[2]);
-            }
-            else
-            {
-                Notification.Show("~r~Error: Incorrect save file format. Resetting values.");
-                dirtyMoney = 0;
-                storedDirtyMoney = 0;
-                blackMarketStoredMoney = 0;
+                if (values.Length == 5)
+                {
+                    dirtyMoneyFranklin = int.Parse(values[0]);
+                    dirtyMoneyMichael = int.Parse(values[1]);
+                    dirtyMoneyTrevor = int.Parse(values[2]);
+                    storedDirtyMoney = int.Parse(values[3]);
+                    blackMarketStoredMoney = int.Parse(values[4]);
+                }
+                else
+                {
+                    Notification.Show("~r~Error: Incorrect save file format. Resetting values.");
+                    dirtyMoneyFranklin = 0;
+                    dirtyMoneyMichael = 0;
+                    dirtyMoneyTrevor = 0;
+                    storedDirtyMoney = 0;
+                    blackMarketStoredMoney = 0;
+                }
             }
         }
-        else
+        catch (Exception ex)
         {
-            dirtyMoney = 0;
+            Notification.Show($"~r~Error loading dirty money: {ex.Message}");
+            dirtyMoneyFranklin = 0;
+            dirtyMoneyMichael = 0;
+            dirtyMoneyTrevor = 0;
             storedDirtyMoney = 0;
             blackMarketStoredMoney = 0;
         }
     }
-    catch (Exception ex)
-    {
-        Notification.Show($"~r~Error loading dirty money: {ex.Message}");
-        dirtyMoney = 0;
-        storedDirtyMoney = 0;
-        blackMarketStoredMoney = 0;
-    }
-}
+
 
 
 
@@ -1011,7 +1034,7 @@ public class CarDealership : Script
 
     private void DisplayDirtyMoney()
     {
-        string text = $"Dirty Money: ${dirtyMoney}"; // Texte à afficher
+        string text = $"Dirty Money: ${GetPlayerDirtyMoney()}"; // Texte à afficher
 
         // Configure la police, taille et couleur
         Function.Call(Hash.SET_TEXT_FONT, 0); // Police standard
