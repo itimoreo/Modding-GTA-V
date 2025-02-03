@@ -73,13 +73,30 @@ public class CarDealership : Script
     private Blip deliveryBlip;
     private int maxCarriedDirtyMoney = 350000; // Montant maximum d'argent sale pouvant être transporté
     private int storedDirtyMoney = 0; // Argent sale stocké dans le coffre
+    private int storedDirtyMoneyFranklin = 0;
+    private int storedDirtyMoneyMichael = 0;
+    private int storedDirtyMoneyTrevor = 0;
+
     private int blackMarketStoredMoney = 0; // Argent sale stocké dans le coffre du marché noir
+
+    private Dictionary<PedHash, List<Vector3>> characterStashLocations = new Dictionary<PedHash, List<Vector3>>
+{
+    { PedHash.Franklin, new List<Vector3> { new Vector3(-26.1794f, -1424.530f, 30.7456f), new Vector3(4.5484f, 530.7266f, 170.6173f) } }, // Garage (ancienne maison) et nouvelle maison
+    { PedHash.Michael, new List<Vector3> { new Vector3(-826.8317f, 180.2720f, 71.4480f) } }, // Villa
+    { PedHash.Trevor, new List<Vector3> { new Vector3(1975.6405f, 3818.4612f, 33.4363f), new Vector3(92.9859f, -1291.684f, 29.2688f) } } // Caravane et Strip-club
+};
+
+    private PedHash lastCharacter;
+
+
+
     private Vector3 stashLocation = new Vector3(-826.8317f, 180.2720f, 71.4480f); // Localisation du coffre
     private float stashRadius = 2.0f;
     private Blip stashBlip;
 
     public CarDealership()
     {
+        lastCharacter = (PedHash)Game.Player.Character.Model.Hash; // Détection du personnage actif au lancement
         Tick += OnTick; // Appelé à chaque frame
         KeyDown += OnKeyDown; // Détecte les touches appuyées
 
@@ -94,6 +111,15 @@ public class CarDealership : Script
 
     private void OnTick(object sender, System.EventArgs e)
     {
+        PedHash currentCharacter = (PedHash)Game.Player.Character.Model.Hash;
+
+        // Vérifie si le joueur a changé de personnage
+        if (currentCharacter != lastCharacter && Game.Player.CanControlCharacter)
+        {
+            lastCharacter = currentCharacter;
+            UpdateStashMenu(); // Met juste à jour les valeurs, SANS ouvrir le menu
+        }
+
         CheckMarketLocation(); // Vérifie la position du joueur par rapport au marché noir
         CheckLaunderingLocation(); // Vérifie la position du joueur par rapport au blanchiment d'argent
         DrawMarketLocation(); // Dessine un marqueur visible
@@ -114,20 +140,20 @@ public class CarDealership : Script
     {
         if (e.KeyCode == System.Windows.Forms.Keys.E)
         {
+            Vector3 currentStash = GetCurrentStash(); // Récupère l'emplacement du stash du personnage actif
 
             if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
             {
                 TryLaunderingMoney();
                 UpdateStashMenu();
             }
-            else if (Game.Player.Character.Position.DistanceTo(stashLocation) < stashRadius)
+            else if (Game.Player.Character.Position.DistanceTo(currentStash) < stashRadius)
             {
-                stashMenu.Visible = true; // Ouvre le menu LemonUI
+                stashMenu.Visible = true; // Ouvre le menu du coffre
             }
             else if (isPlayerInMarket)
             {
                 OpenBlackMarketMenu();
-                //TrySellVehicle();
                 UpdateStashMenu();
             }
             else
@@ -144,10 +170,15 @@ public class CarDealership : Script
             }
         }
 
-        // if (e.KeyCode == System.Windows.Forms.Keys.F7)
-        // {
-        //    dirtyMoney += 350000; // Déplace le marché noir à une nouvelle position
-        // }
+        if (e.KeyCode == System.Windows.Forms.Keys.F7)
+        {
+            ref int playerDirtyMoney = ref GetPlayerDirtyMoney(); // Récupère l'argent sale du bon personnage
+            playerDirtyMoney += 350000; // Ajoute 350 000$ d'argent sale
+
+            SaveDirtyMoney(); // Sauvegarde immédiatement
+            Notification.Show("~g~Cheat activated: +$350,000 dirty money!");
+        }
+
     }
 
     /// -------------- Black Market Menu Methods --------------
@@ -329,10 +360,23 @@ public class CarDealership : Script
         confirmMenu.Visible = true;
     }
 
-    private void UpdateStashMenu()
-    {
-        stashMenu.Items[0].Title = $"💰 Stash: ${storedDirtyMoney} | Carried: ${dirtyMoney}";
-    }
+ private void UpdateStashMenu()
+{
+    ref int playerStashMoney = ref GetPlayerStashMoney(); // Récupère le bon stash
+    ref int playerDirtyMoney = ref GetPlayerDirtyMoney(); // Récupère l'argent sale du joueur
+
+    // Met à jour les valeurs
+    stashMenu.Items[0].Title = $"💰 Stash: ${playerStashMoney} | Carried: ${playerDirtyMoney}";
+
+    // Forcer une mise à jour du menu
+    //stashMenu.Visible = false; // Ferme le menu brièvement
+    //stashMenu.Visible = true;  // Le réouvre immédiatement
+
+    Notification.Show($"~b~Updated Stash Menu: Stash ${playerStashMoney}, Carried ${playerDirtyMoney}");
+}
+
+
+
 
 
 
@@ -346,61 +390,79 @@ public class CarDealership : Script
         stashBlip.Name = "Money Stash";
     }
 
-    private void TryStoreDirtyMoney(int amount)
+private void TryStoreDirtyMoney(int amount)
+{
+    Vector3 stashLocation = GetCurrentStash(); // Récupère la localisation correcte du stash
+
+    if (Game.Player.Character.Position.DistanceTo(stashLocation) < stashRadius)
     {
-        if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+        ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
+        ref int playerStashMoney = ref GetPlayerStashMoney(); // Utilise maintenant le bon stash
+
+        if (playerDirtyMoney >= amount)
         {
-            if (dirtyMoney >= amount)
-            {
-                storedDirtyMoney += amount;
-                dirtyMoney -= amount;
-                Notification.Show($"~g~You stored ${amount} in the stash!");
-                SaveDirtyMoney();
-                UpdateStashMenu();
-            }
-            else
-            {
-                Notification.Show("~r~Not enough dirty money to store!");
-            }
+            playerStashMoney += amount; // Stocke l'argent dans le bon stash
+            playerDirtyMoney -= amount; // Retire l'argent du personnage
+
+            SaveDirtyMoney();
+            UpdateStashMenu();
+
+            Notification.Show($"~g~You stored ${amount} in your personal stash! New balance: ${playerStashMoney}");
         }
         else
         {
-            Notification.Show("~r~You are not at the stash location!");
+            Notification.Show("~r~Not enough dirty money to store!");
         }
     }
+    else
+    {
+        Notification.Show("~r~You are not at your stash location!");
+    }
+}
+
+
+
 
 
     private void TryWithdrawDirtyMoney(int amount)
+{
+    Vector3 stashLocation = GetCurrentStash();
+
+    if (Game.Player.Character.Position.DistanceTo(stashLocation) < stashRadius)
     {
-        if (Game.Player.Character.Position.DistanceTo(stashLocation) < 5.0f)
+        ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
+        ref int playerStashMoney = ref GetPlayerStashMoney(); // Utilise maintenant le bon stash
+
+        if (playerStashMoney >= amount)
         {
-            if (storedDirtyMoney >= amount)
+            int availableSpace = maxCarriedDirtyMoney - playerDirtyMoney;
+            int amountToWithdraw = Math.Min(amount, availableSpace);
+
+            playerStashMoney -= amountToWithdraw; // Retire depuis le stash du bon perso
+            playerDirtyMoney += amountToWithdraw; // Ajoute au joueur
+
+            SaveDirtyMoney();
+            UpdateStashMenu();
+
+            Notification.Show($"~g~You withdrew ${amountToWithdraw} from your stash! New balance: ${playerStashMoney}");
+
+            if (amountToWithdraw < amount)
             {
-                int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
-                int amountToWithdraw = Math.Min(amount, availableSpace);
-
-                storedDirtyMoney -= amountToWithdraw;
-                GetPlayerDirtyMoney() += amountToWithdraw;
-                Notification.Show($"~g~You withdrew ${amountToWithdraw} from the stash!");
-                SaveDirtyMoney();
-
-                if (amountToWithdraw < amount)
-                {
-                    Notification.Show("~y~You couldn't withdraw the full amount due to carry limit.");
-                }
-
-                UpdateStashMenu();
-            }
-            else
-            {
-                Notification.Show("~r~Not enough money in stash!");
+                Notification.Show("~y~You couldn't withdraw the full amount due to carry limit.");
             }
         }
         else
         {
-            Notification.Show("~r~You are not at the stash location!");
+            Notification.Show("~r~Not enough money in your stash!");
         }
     }
+    else
+    {
+        Notification.Show("~r~You are not at your stash location!");
+    }
+}
+
+
 
 
 
@@ -425,6 +487,29 @@ public class CarDealership : Script
         }
     }
 
+    private Vector3 GetCurrentStash()
+    {
+        PedHash playerModel = (PedHash)Game.Player.Character.Model.Hash;
+
+        if (playerModel == PedHash.Franklin)
+            return GetFranklinStash(); // Vérifie si Franklin a déménagé
+        else if (playerModel == PedHash.Michael)
+            return characterStashLocations[PedHash.Michael][0]; // Michael a un seul stash
+        else if (playerModel == PedHash.Trevor)
+        {
+            // Vérifie si Trevor est proche du strip-club ou de la caravane
+            Vector3 playerPos = Game.Player.Character.Position;
+            float distCaravane = playerPos.DistanceTo(characterStashLocations[PedHash.Trevor][0]);
+            float distStripClub = playerPos.DistanceTo(characterStashLocations[PedHash.Trevor][1]);
+
+            // Renvoie le stash le plus proche
+            return (distCaravane < distStripClub) ? characterStashLocations[PedHash.Trevor][0] : characterStashLocations[PedHash.Trevor][1];
+        }
+
+        return new Vector3(); // Valeur de secours si erreur
+    }
+
+    
 
 
 
@@ -768,18 +853,33 @@ public class CarDealership : Script
     }
     private void DrawStashLocation()
     {
-        // Dessine un marqueur vert sur l'emplacement du coffre
+        Vector3 stashLocation = GetCurrentStash();
+
+        if (stashBlip == null)
+        {
+            stashBlip = World.CreateBlip(stashLocation);
+            stashBlip.Sprite = BlipSprite.Safehouse;
+            stashBlip.Color = BlipColor.Yellow;
+            stashBlip.Name = "Money Stash";
+        }
+        else
+        {
+            stashBlip.Position = stashLocation;
+        }
+
         World.DrawMarker(
             MarkerType.VerticalCylinder,
             stashLocation,
             Vector3.Zero,
             Vector3.Zero,
-            new Vector3(stashRadius, stashRadius, 0.5f),
+            new Vector3(2.0f, 2.0f, 0.5f),
             Color.Green,
             false,
             false
         );
     }
+
+
 
 
     /// ------------- Laundering Methods -------------
@@ -812,56 +912,56 @@ public class CarDealership : Script
     }
 
     private void TryLaunderingMoney()
-{
-    if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
     {
-        if (Game.Player.WantedLevel > 0)
+        if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
         {
-            Notification.Show("~r~You must lose your wanted level before laundering dirty money!");
-            return;
-        }
-
-        ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
-
-        if (playerDirtyMoney > 0)
-        {
-            // Vérifie si le joueur est détecté
-            if (IsDetectedDuringLaundering())
+            if (Game.Player.WantedLevel > 0)
             {
-                // Ajoute des étoiles de recherche
-                Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player, 3, false); // 3 étoiles
-                Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player, false);
-
-                // Affiche une notification d'alerte
-                Notification.Show("~r~Laundry detected! Hostiles incoming!");
+                Notification.Show("~r~You must lose your wanted level before laundering dirty money!");
                 return;
             }
 
-            // Calcule l'argent blanchi avec un taux de conversion
-            int convertedMoney = (int)(playerDirtyMoney * 0.8); // 80 % converti
-            int fee = playerDirtyMoney - convertedMoney; // Perte due au blanchiment
+            ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
 
-            // Ajoute l'argent converti au joueur
-            Game.Player.Money += convertedMoney;
+            if (playerDirtyMoney > 0)
+            {
+                // Vérifie si le joueur est détecté
+                if (IsDetectedDuringLaundering())
+                {
+                    // Ajoute des étoiles de recherche
+                    Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player, 3, false); // 3 étoiles
+                    Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player, false);
 
-            // Réinitialise l'argent sale pour ce personnage
-            playerDirtyMoney = 0;
-            SaveDirtyMoney(); // Sauvegarde l'argent sale
+                    // Affiche une notification d'alerte
+                    Notification.Show("~r~Laundry detected! Hostiles incoming!");
+                    return;
+                }
 
-            // Affiche une notification confirmant le blanchiment
-            Notification.Show($"~b~Laundry successful! ${convertedMoney} laundered, ${fee} launder fee.");
+                // Calcule l'argent blanchi avec un taux de conversion
+                int convertedMoney = (int)(playerDirtyMoney * 0.8); // 80 % converti
+                int fee = playerDirtyMoney - convertedMoney; // Perte due au blanchiment
+
+                // Ajoute l'argent converti au joueur
+                Game.Player.Money += convertedMoney;
+
+                // Réinitialise l'argent sale pour ce personnage
+                playerDirtyMoney = 0;
+                SaveDirtyMoney(); // Sauvegarde l'argent sale
+
+                // Affiche une notification confirmant le blanchiment
+                Notification.Show($"~b~Laundry successful! ${convertedMoney} laundered, ${fee} launder fee.");
+            }
+            else
+            {
+                // Pas d'argent sale à blanchir
+                Notification.Show("~r~You don't have any dirty money to launder!");
+            }
         }
         else
         {
-            // Pas d'argent sale à blanchir
-            Notification.Show("~r~You don't have any dirty money to launder!");
+            Notification.Show("~r~You are not at the laundering location!");
         }
     }
-    else
-    {
-        Notification.Show("~r~You are not at the laundering location!");
-    }
-}
 
 
     private bool IsDetectedDuringLaundering()
@@ -873,6 +973,30 @@ public class CarDealership : Script
     }
 
     /// -------------- Utility Methods --------------
+
+    private ref int GetPlayerStashMoney()
+{
+    switch ((uint)Game.Player.Character.Model.Hash)
+    {
+        case (uint)PedHash.Michael:
+            return ref storedDirtyMoneyMichael;
+        case (uint)PedHash.Franklin:
+            return ref storedDirtyMoneyFranklin;
+        case (uint)PedHash.Trevor:
+            return ref storedDirtyMoneyTrevor;
+        default:
+            return ref storedDirtyMoneyMichael; // Valeur par défaut si erreur
+    }
+}
+
+
+
+    private Vector3 GetFranklinStash()
+    {
+        bool hasFranklinMoved = Function.Call<bool>(Hash.HAS_ACHIEVEMENT_BEEN_PASSED, 27); // 27 = mission où Franklin déménage
+        return hasFranklinMoved ? characterStashLocations[PedHash.Franklin][1] : characterStashLocations[PedHash.Franklin][0];
+    }
+
 
     private ref int GetPlayerDirtyMoney()
     {
@@ -972,57 +1096,80 @@ public class CarDealership : Script
 
 
     private void SaveDirtyMoney()
+{
+    try
     {
-        try
-        {
-            string data = $"{dirtyMoneyFranklin},{dirtyMoneyMichael},{dirtyMoneyTrevor},{storedDirtyMoney},{blackMarketStoredMoney}";
-            System.IO.File.WriteAllText(saveFilePath, data);
-        }
-        catch (Exception ex)
-        {
-            Notification.Show($"~r~Error saving dirty money: {ex.Message}");
-        }
+        string data = $"{dirtyMoneyFranklin},{dirtyMoneyMichael},{dirtyMoneyTrevor}," +
+                      $"{storedDirtyMoneyFranklin},{storedDirtyMoneyMichael},{storedDirtyMoneyTrevor}," +
+                      $"{blackMarketStoredMoney}";
+
+        System.IO.File.WriteAllText(saveFilePath, data);
+        Notification.Show("~g~Dirty money and stash saved!");
     }
+    catch (Exception ex)
+    {
+        Notification.Show($"~r~Error saving dirty money: {ex.Message}");
+    }
+}
+
+
 
 
 
 
     private void LoadDirtyMoney()
+{
+    try
     {
-        try
+        if (System.IO.File.Exists(saveFilePath))
         {
-            if (System.IO.File.Exists(saveFilePath))
-            {
-                string[] values = System.IO.File.ReadAllText(saveFilePath).Split(',');
+            string[] values = System.IO.File.ReadAllText(saveFilePath).Split(',');
 
-                if (values.Length == 5)
-                {
-                    dirtyMoneyFranklin = int.Parse(values[0]);
-                    dirtyMoneyMichael = int.Parse(values[1]);
-                    dirtyMoneyTrevor = int.Parse(values[2]);
-                    storedDirtyMoney = int.Parse(values[3]);
-                    blackMarketStoredMoney = int.Parse(values[4]);
-                }
-                else
-                {
-                    Notification.Show("~r~Error: Incorrect save file format. Resetting values.");
-                    dirtyMoneyFranklin = 0;
-                    dirtyMoneyMichael = 0;
-                    dirtyMoneyTrevor = 0;
-                    storedDirtyMoney = 0;
-                    blackMarketStoredMoney = 0;
-                }
+            if (values.Length == 7) // Vérifie qu'on a bien toutes les données
+            {
+                dirtyMoneyFranklin = int.Parse(values[0]);
+                dirtyMoneyMichael = int.Parse(values[1]);
+                dirtyMoneyTrevor = int.Parse(values[2]);
+
+                storedDirtyMoneyFranklin = int.Parse(values[3]);
+                storedDirtyMoneyMichael = int.Parse(values[4]);
+                storedDirtyMoneyTrevor = int.Parse(values[5]);
+
+                blackMarketStoredMoney = int.Parse(values[6]);
+
+                Notification.Show($"~g~Loaded Money: F=${storedDirtyMoneyFranklin}, M=${storedDirtyMoneyMichael}, T=${storedDirtyMoneyTrevor}");
+            }
+            else
+            {
+                Notification.Show("~r~Error: Incorrect save file format. Resetting values.");
+                ResetDirtyMoney();
             }
         }
-        catch (Exception ex)
+        else
         {
-            Notification.Show($"~r~Error loading dirty money: {ex.Message}");
-            dirtyMoneyFranklin = 0;
-            dirtyMoneyMichael = 0;
-            dirtyMoneyTrevor = 0;
-            storedDirtyMoney = 0;
-            blackMarketStoredMoney = 0;
+            ResetDirtyMoney();
         }
+    }
+    catch (Exception ex)
+    {
+        Notification.Show($"~r~Error loading dirty money: {ex.Message}");
+        ResetDirtyMoney();
+    }
+}
+
+
+
+    private void ResetDirtyMoney()
+    {
+        dirtyMoneyFranklin = 0;
+        dirtyMoneyMichael = 0;
+        dirtyMoneyTrevor = 0;
+
+        storedDirtyMoneyFranklin = 0;
+        storedDirtyMoneyMichael = 0;
+        storedDirtyMoneyTrevor = 0;
+
+        blackMarketStoredMoney = 0;
     }
 
 
