@@ -40,6 +40,8 @@ public class CarDealership : Script
     private int dirtyMoneyFranklin, dirtyMoneyTrevor, dirtyMoneyMichael = 0;
     private string saveFilePath = "scripts\\save.txt";
     private bool playerHasSoldCar = false;
+    // Reuse a single RNG for consistent randomness and fewer allocations
+    private static readonly Random rng = new Random();
 
     // For the vehicle theft mission --------
     private VehicleTheftMission activeMission;
@@ -102,7 +104,6 @@ public class CarDealership : Script
 
         LoadDirtyMoney(); // Charge l'argent sale depuis un fichier
         UpdateBlips(); // Crée les marqueurs sur la carte
-        RemoveBlips(); // Supprime les marqueurs sur la carte
         InitializePhone(); // Initialise le téléphone
         InitializeStash(); // Initialise le coffre
         InitializeStashMenu(); // Initialise le menu du coffre
@@ -237,7 +238,8 @@ public class CarDealership : Script
         }
 
         int salePrice = CalculatePriceBasedOnTypeAndDamage(playerVehicle);
-        int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+        ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
+        int availableSpace = maxCarriedDirtyMoney - playerDirtyMoney;
 
         if (availableSpace >= salePrice)
         {
@@ -249,9 +251,10 @@ public class CarDealership : Script
         else
         {
             // Stocke l'excédent au Black Market
-            dirtyMoney = maxCarriedDirtyMoney; // Atteint la limite max
+            playerDirtyMoney = maxCarriedDirtyMoney; // Atteint la limite max
             blackMarketStoredMoney += (salePrice - availableSpace);
-            blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
+            // withdraw item is at index 2
+            blackMarketMenu.Items[2].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
             SaveDirtyMoney();
             Notification.Show($"~g~Vehicle sold! You reached the money limit. ${salePrice - availableSpace} stored at Black Market.");
         }
@@ -269,12 +272,14 @@ public class CarDealership : Script
             return;
         }
 
-        int availableSpace = maxCarriedDirtyMoney - dirtyMoney;
+        ref int playerDirtyMoneyW = ref GetPlayerDirtyMoney();
+        int availableSpace = maxCarriedDirtyMoney - playerDirtyMoneyW;
         int amountToWithdraw = Math.Min(blackMarketStoredMoney, availableSpace);
 
-        GetPlayerDirtyMoney() += amountToWithdraw;
+        playerDirtyMoneyW += amountToWithdraw;
         blackMarketStoredMoney -= amountToWithdraw;
-        blackMarketMenu.Items[blackMarketMenu.Items.Count - 1].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
+        // withdraw item is at index 2
+        blackMarketMenu.Items[2].Title = $"💰 Withdraw Stored Money: ${blackMarketStoredMoney}";
 
         Notification.Show($"~g~You withdrew ${amountToWithdraw} from the Black Market!");
 
@@ -290,7 +295,7 @@ public class CarDealership : Script
         menuPool = new ObjectPool();
         stashMenu = new NativeMenu("💰 Money Stash", "Manage your dirty money");
 
-        var stashInfo = new NativeItem($"~r~Stash: ${storedDirtyMoney} | ~y~ Carried: ${dirtyMoney}");
+        var stashInfo = new NativeItem($"~r~Stash: ${GetPlayerStashMoney()} | ~y~ Carried: ${GetPlayerDirtyMoney()}");
         stashInfo.Enabled = false; // Désactiver l'interaction (juste une info)
 
         // Liste fixe des montants disponibles pour le dépôt/retrait
@@ -365,14 +370,8 @@ public class CarDealership : Script
     ref int playerStashMoney = ref GetPlayerStashMoney(); // Récupère le bon stash
     ref int playerDirtyMoney = ref GetPlayerDirtyMoney(); // Récupère l'argent sale du joueur
 
-    // Met à jour les valeurs
+    // Met à jour les valeurs (sans spam de notification)
     stashMenu.Items[0].Title = $"💰 Stash: ${playerStashMoney} | Carried: ${playerDirtyMoney}";
-
-    // Forcer une mise à jour du menu
-    //stashMenu.Visible = false; // Ferme le menu brièvement
-    //stashMenu.Visible = true;  // Le réouvre immédiatement
-
-    Notification.Show($"~b~Updated Stash Menu: Stash ${playerStashMoney}, Carried ${playerDirtyMoney}");
 }
 
 
@@ -468,16 +467,17 @@ private void TryStoreDirtyMoney(int amount)
 
     private void TrySellVehicleWithMoneyLimit(Vehicle vehicle)
     {
-        if (dirtyMoney >= maxCarriedDirtyMoney)
+        ref int playerDirtyMoneyLimit = ref GetPlayerDirtyMoney();
+        if (playerDirtyMoneyLimit >= maxCarriedDirtyMoney)
         {
             Notification.Show("~r~You are carrying too much dirty money! Store some before selling!");
             return;
         }
 
         int price = CalculatePriceBasedOnTypeAndDamage(vehicle);
-        int maxEarnings = maxCarriedDirtyMoney - dirtyMoney;
+        int maxEarnings = maxCarriedDirtyMoney - playerDirtyMoneyLimit;
         int actualEarnings = Math.Min(price, maxEarnings);
-        GetPlayerDirtyMoney() += actualEarnings;
+        playerDirtyMoneyLimit += actualEarnings;
         vehicle.Delete();
         Notification.Show($"~g~Car sold for ${actualEarnings}!");
         SaveDirtyMoney();
@@ -534,11 +534,10 @@ private void TryStoreDirtyMoney(int amount)
         }
 
         // Choix aléatoire d'un véhicule parmi la liste des véhicules disponibles
-        Random random = new Random();
-        VehicleHash selectedVehicle = availableVehicles[random.Next(availableVehicles.Count)];
+        VehicleHash selectedVehicle = availableVehicles[rng.Next(availableVehicles.Count)];
 
         // Sélectionne une localisation de spawn aléatoire parmi les emplacements définis
-        Vector3 selectedSpawnLocation = spawnLocations[random.Next(spawnLocations.Count)];
+        Vector3 selectedSpawnLocation = spawnLocations[rng.Next(spawnLocations.Count)];
 
         // Initialisation de la mission avec les paramètres choisis
         activeMission = new VehicleTheftMission
@@ -739,8 +738,7 @@ private void TryStoreDirtyMoney(int amount)
 
     private void MoveBlackMarket()
     {
-        Random random = new Random();
-        int index = random.Next(blackMarketLocations.Count);
+        int index = rng.Next(blackMarketLocations.Count);
 
         // Sélectionne une localisation aléatoire
         Vector3 selectedLocation = blackMarketLocations[index];
@@ -966,9 +964,9 @@ private void TryStoreDirtyMoney(int amount)
 
     private bool IsDetectedDuringLaundering()
     {
-        Random random = new Random();
-        int chance = random.Next(0, 101); // Génère un nombre aléatoire entre 0 et 100
-        int detectionRisk = Math.Min(dirtyMoney / 500, 50); // Risque de détection basé sur l'argent sale 50% max
+        int chance = rng.Next(0, 101); // Génère un nombre aléatoire entre 0 et 100
+        ref int playerDirtyMoneyDetect = ref GetPlayerDirtyMoney();
+        int detectionRisk = Math.Min(playerDirtyMoneyDetect / 500, 50); // Risque de détection basé sur l'argent sale 50% max
         return chance <= detectionRisk; // Retourne vrai si le joueur est détecté
     }
 
@@ -993,8 +991,16 @@ private void TryStoreDirtyMoney(int amount)
 
     private Vector3 GetFranklinStash()
     {
-        bool hasFranklinMoved = Function.Call<bool>(Hash.HAS_ACHIEVEMENT_BEEN_PASSED, 27); // 27 = mission où Franklin déménage
-        return hasFranklinMoved ? characterStashLocations[PedHash.Franklin][1] : characterStashLocations[PedHash.Franklin][0];
+        // Dynamique: choisit le stash (ancienne maison vs nouvelle villa) le plus pertinent selon la proximité.
+        // C'est plus fiable que de s'appuyer sur un flag de progression de l'histoire potentiellement erroné.
+        Vector3 franklinPosition = Game.Player.Character.Position;
+
+        float distanceToOldHouse = franklinPosition.DistanceTo(characterStashLocations[PedHash.Franklin][0]);
+        float distanceToNewHouse = franklinPosition.DistanceTo(characterStashLocations[PedHash.Franklin][1]);
+
+        return (distanceToOldHouse < distanceToNewHouse)
+            ? characterStashLocations[PedHash.Franklin][0]
+            : characterStashLocations[PedHash.Franklin][1];
     }
 
 
@@ -1281,6 +1287,9 @@ private void TryStoreDirtyMoney(int amount)
 
         // Applique le multiplicateur de classe, la santé et la valeur des modifications
         int finalPrice = (int)((basePrice + pimpValue) * classMultiplier * healthPercentage);
+
+        // Prix plancher pour éviter les ventes à $0
+        finalPrice = Math.Max(finalPrice, 1500);
 
         return finalPrice;
     }
