@@ -9,6 +9,8 @@ using iFruitAddon2; // Ensure this library is referenced in your project
 using LemonUI;
 using LemonUI.Menus;
 
+#if false
+
 public class CarDealership : Script
 {
     private ObjectPool menuPool;
@@ -519,7 +521,7 @@ private void TryStoreDirtyMoney(int amount)
     {
         public string Name { get; set; }
         public VehicleHash TargetVehicle { get; set; }
-        public Vector3 SpawnLocation { get; set; }
+        public Vector3 SpawnLocations { get; set; }
         public Vector3 DeliveryLocation { get; set; }
         public bool IsActive { get; set; }
     }
@@ -554,6 +556,7 @@ private void TryStoreDirtyMoney(int amount)
         targetVehicleBlip.Sprite = BlipSprite.PersonalVehicleCar; // Icône de voiture sur le radar
         targetVehicleBlip.Color = BlipColor.Yellow; // Couleur jaune pour identifier facilement
         targetVehicleBlip.Name = "Target Vehicle"; // Nom affiché pour le blip
+        targetVehicleBlip.ShowRoute = true; // Active le tracé de route
 
         // Fait apparaître le véhicule cible à la localisation choisie
         targetVehicle = World.CreateVehicle(activeMission.TargetVehicle, activeMission.SpawnLocation);
@@ -586,6 +589,8 @@ private void TryStoreDirtyMoney(int amount)
         if (playerVehicle != null && playerVehicle.Model.Hash == (int)activeMission.TargetVehicle)
         {
             Notification.Show("~g~You stole the target vehicle! Deliver it to the drop-off point.");
+            targetVehicleBlip.Delete();
+            targetVehicleBlip = null;
 
             // Ajoute un blip pour la localisation de livraison si pas déjà créé
             if (deliveryBlip == null)
@@ -594,6 +599,7 @@ private void TryStoreDirtyMoney(int amount)
                 deliveryBlip.Sprite = BlipSprite.Garage;
                 deliveryBlip.Color = BlipColor.Green;
                 deliveryBlip.Name = "Delivery Point";
+                deliveryBlip.ShowRoute = true; // Active le tracé de route
             }
 
             // Supprime le blip du véhicule cible
@@ -1319,3 +1325,5 @@ private void TryStoreDirtyMoney(int amount)
         }
     }
 }
+
+#endif
