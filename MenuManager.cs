@@ -258,13 +258,13 @@ namespace CarDealerShipMod
             };
             contactB.Answered += (contact) =>
             {
-                if (_missions.HasActiveMission)
+                if (_missions.CurrentState != MissionState.None)
                 {
                     Notification.Show("~r~A mission is already active! Complete it before starting another.");
                     return;
                 }
 
-                _missions.StartVehicleTheftMission();
+                _missions.StartMission();
             };
             _ifruit.Contacts.Add(contactB);
         }

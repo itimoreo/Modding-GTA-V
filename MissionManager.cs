@@ -2,32 +2,35 @@ using System;
 using System.Collections.Generic;
 using GTA;
 using GTA.Math;
+using GTA.Native;
 using GTA.UI;
 
 namespace CarDealerShipMod
 {
+    // On définit les étapes claires de la mission
+    public enum MissionState
+    {
+        None,           // Pas de mission
+        GoToVehicle,    // Aller chercher la voiture
+        Delivering      // Conduire au point de livraison
+    }
+
     public class MissionManager
     {
-        public class VehicleTheftMission
-        {
-            public string Name { get; set; }
-            public VehicleHash TargetVehicle { get; set; }
-            public Vector3 SpawnLocation { get; set; }
-            public Vector3 DeliveryLocation { get; set; }
-            public bool IsActive { get; set; }
-        }
+        // --- Variables d'état ---
+        public MissionState CurrentState { get; private set; } = MissionState.None;
+        
+        public event Action<int> MissionCompleted;
 
-        private VehicleTheftMission _activeMission;
         private Vehicle _targetVehicle;
-
-        private Blip _targetVehicleBlip;
-        private Blip _deliveryBlip;
-
+        private Blip _missionBlip; // Un seul blip qu'on recycle (plus propre)
+        
         private readonly List<VehicleHash> _availableVehicles;
         private readonly List<Vector3> _spawnLocations;
-
         private readonly Vector3 _deliveryLocation;
+        private readonly Random _rng = new Random();
 
+        // Constructeur
         public MissionManager(List<VehicleHash> availableVehicles, List<Vector3> spawnLocations, Vector3 deliveryLocation)
         {
             _availableVehicles = availableVehicles;
@@ -35,153 +38,170 @@ namespace CarDealerShipMod
             _deliveryLocation = deliveryLocation;
         }
 
-        public bool HasActiveMission => _activeMission != null;
+        // --- Méthodes Publiques ---
 
-        public void StartVehicleTheftMission()
+        public void StartMission()
         {
-            if (_activeMission != null && _activeMission.IsActive)
+            if (CurrentState != MissionState.None)
             {
-                Notification.Show("~r~A mission is already active! Complete it before starting another.");
+                Notification.Show("~r~Une mission est déjà en cours !");
                 return;
             }
 
-            VehicleHash selectedVehicle = _availableVehicles[Utils.Rng.Next(_availableVehicles.Count)];
-            Vector3 selectedSpawnLocation = _spawnLocations[Utils.Rng.Next(_spawnLocations.Count)];
+            // 1. Choix aléatoire
+            var vehicleModel = _availableVehicles[_rng.Next(_availableVehicles.Count)];
+            var spawnPos = _spawnLocations[_rng.Next(_spawnLocations.Count)];
 
-            _activeMission = new VehicleTheftMission
+            // 2. Création du véhicule
+            _targetVehicle = World.CreateVehicle(vehicleModel, spawnPos);
+            
+            if (_targetVehicle == null)
             {
-                Name = $"Steal the {selectedVehicle}",
-                TargetVehicle = selectedVehicle,
-                SpawnLocation = selectedSpawnLocation,
-                DeliveryLocation = _deliveryLocation,
-                IsActive = true
-            };
-
-            _targetVehicleBlip = World.CreateBlip(_activeMission.SpawnLocation);
-            _targetVehicleBlip.Sprite = BlipSprite.PersonalVehicleCar;
-            _targetVehicleBlip.Color = BlipColor.Yellow;
-            _targetVehicleBlip.Name = "Target Vehicle";
-            _targetVehicleBlip.ShowRoute = true;
-
-            _targetVehicle = World.CreateVehicle(_activeMission.TargetVehicle, _activeMission.SpawnLocation);
-            if (_targetVehicle != null)
-            {
-                _targetVehicle.IsPersistent = true;
-                _targetVehicle.PlaceOnGround();
-                _targetVehicle.LockStatus = VehicleLockStatus.CanBeBrokenIntoPersist;
-            }
-            else
-            {
-                Notification.Show("~r~Failed to spawn the target vehicle!");
-                _activeMission = null;
+                Notification.Show("~r~Erreur: Impossible de faire apparaître le véhicule.");
                 return;
             }
 
-            Notification.Show($"~y~Mission started: {_activeMission.Name}. Go to the location!");
+            _targetVehicle.IsPersistent = true;
+            _targetVehicle.PlaceOnGround();
+            //_targetVehicle.LockStatus = VehicleLockStatus.Locked; // Véhicule verrouillé pour le réalisme
+            
+            // 3. Création du Blip (Cible)
+            CreateBlip(spawnPos, BlipSprite.PersonalVehicleCar, BlipColor.Yellow, "Véhicule Cible");
+
+            // 4. Mise à jour de l'état
+            CurrentState = MissionState.GoToVehicle;
+            Notification.Show($"~y~Mission : Vole la {_targetVehicle.DisplayName}.");
         }
 
-        public bool TryHandleTheftStage()
+        public void Update()
         {
-            if (_activeMission == null || !_activeMission.IsActive)
-                return false;
-
-            Vehicle playerVehicle = Game.Player.Character.CurrentVehicle;
-
-            if (playerVehicle != null && playerVehicle.Model.Hash == (int)_activeMission.TargetVehicle)
+            // Si pas de mission, on s'assure qu'il ne reste aucun artefact (blip/route/véhicule persistant)
+            if (CurrentState == MissionState.None)
             {
-                Notification.Show("~g~You stole the target vehicle! Deliver it to the drop-off point.");
-
-                if (_targetVehicleBlip != null)
-                {
-                    _targetVehicleBlip.Delete();
-                    _targetVehicleBlip = null;
-                }
-
-                if (_deliveryBlip == null)
-                {
-                    _deliveryBlip = World.CreateBlip(_activeMission.DeliveryLocation);
-                    _deliveryBlip.Sprite = BlipSprite.Garage;
-                    _deliveryBlip.Color = BlipColor.Green;
-                    _deliveryBlip.Name = "Delivery Point";
-                    _deliveryBlip.ShowRoute = true;
-                }
-
-                _activeMission.IsActive = false;
-                return true;
+                EnsureNoMissionArtifacts();
+                return;
             }
 
-            return false;
-        }
-
-        public bool TryDeliverStolenVehicle(out int reward)
-        {
-            reward = 0;
-
-            if (_activeMission == null || _targetVehicle == null)
-                return false;
-
-            Vehicle playerVehicle = Game.Player.Character.CurrentVehicle;
-
-            if (playerVehicle != null && playerVehicle == _targetVehicle)
+            // Sécurité : Si le véhicule a été détruit
+            if (_targetVehicle == null || !_targetVehicle.Exists() || _targetVehicle.IsDead)
             {
-                float distanceToDelivery = playerVehicle.Position.DistanceTo(_activeMission.DeliveryLocation);
-                if (distanceToDelivery < 5.0f)
-                {
-                    reward = 120000;
-                    Notification.Show("~g~Vehicle delivered successfully! Mission completed. You earned ~y~$120,000!");
+                Notification.Show("~r~Le véhicule cible a été détruit ! Mission échouée.");
+                CleanupMission();
+                return;
+            }
 
-                    _targetVehicle.Delete();
-                    _targetVehicle = null;
-                    _activeMission = null;
+            Ped player = Game.Player.Character;
 
-                    if (_deliveryBlip != null)
+            // --- Logique selon l'étape ---
+            switch (CurrentState)
+            {
+                case MissionState.GoToVehicle:
+                    // Vérifie si le joueur est monté dans LE bon véhicule
+                    if (player.IsInVehicle(_targetVehicle))
                     {
-                        _deliveryBlip.Delete();
-                        _deliveryBlip = null;
+                        // Transition vers l'étape Livraison
+                        CurrentState = MissionState.Delivering;
+                        
+                        // Mise à jour du Blip vers la destination
+                        CreateBlip(_deliveryLocation, BlipSprite.Garage, BlipColor.Green, "Point de Livraison");
+                        
+                        Notification.Show("~g~Véhicule récupéré ! ~w~Livre-le au garage indiqué.");
                     }
+                    break;
 
-                    return true;
-                }
-
-                return false;
+                case MissionState.Delivering:
+                    // Vérifie si le joueur est proche de la livraison
+                    // DistanceToSquared est plus rapide pour le processeur
+                    if (_targetVehicle.Position.DistanceToSquared(_deliveryLocation) < 25.0f) // ~5 mètres
+                    {
+                         // Vérifie que le joueur est toujours dedans (optionnel, mais mieux)
+                        if (player.IsInVehicle(_targetVehicle))
+                        {
+                            CompleteMission();
+                        }
+                        else
+                        {
+                            GTA.UI.Screen.ShowHelpTextThisFrame("Montez dans le véhicule pour valider la livraison.");
+                        }
+                    }
+                    break;
             }
-
-            if (playerVehicle != _targetVehicle)
-            {
-                Notification.Show("~r~You must deliver the target vehicle!");
-            }
-
-            return false;
         }
 
-        public void ForceResetMission()
+        public void ForceReset()
         {
-            Notification.Show("~r~Mission reset due to an error or manual override.");
-            ResetMissionState();
+            CleanupMission();
+            Notification.Show("~r~Mission annulée.");
         }
 
-        public void ResetMissionState()
+        // --- Méthodes Privées (Internes) ---
+
+        private void CompleteMission()
         {
-            if (_targetVehicle != null)
+            const int reward = 120000;
+
+            Notification.Show("~g~Mission réussie ! ~y~+$120,000");
+            MissionCompleted?.Invoke(reward);
+            
+            // Penser à ajouter l'argent via ton EconomyManager ici si tu l'as lié
+            // ex: _economyManager.AddDirtyMoney(120000); 
+            
+            CleanupMission();
+        }
+
+        private void CleanupMission()
+        {
+            // 1. Nettoyer le Blip
+            if (_missionBlip != null && _missionBlip.Exists())
             {
-                _targetVehicle.IsPersistent = false;
+                _missionBlip.ShowRoute = false;
+                _missionBlip.Delete();
+                _missionBlip = null;
+            }
+
+            // 2. Nettoyer le Véhicule
+            if (_targetVehicle != null && _targetVehicle.Exists())
+            {
+                _targetVehicle.IsPersistent = false; // Rend le contrôle au jeu pour le despawn naturel
                 _targetVehicle.Delete();
                 _targetVehicle = null;
             }
 
-            if (_targetVehicleBlip != null)
+            // 3. Remettre l'état à zéro
+            CurrentState = MissionState.None;
+        }
+
+        private void EnsureNoMissionArtifacts()
+        {
+            if (_missionBlip != null && _missionBlip.Exists())
             {
-                _targetVehicleBlip.Delete();
-                _targetVehicleBlip = null;
+                _missionBlip.ShowRoute = false;
+                _missionBlip.Delete();
+                _missionBlip = null;
             }
 
-            if (_deliveryBlip != null)
+            if (_targetVehicle != null && _targetVehicle.Exists())
             {
-                _deliveryBlip.Delete();
-                _deliveryBlip = null;
+                _targetVehicle.IsPersistent = false;
+                _targetVehicle.MarkAsNoLongerNeeded();
+                _targetVehicle = null;
+            }
+        }
+
+        private void CreateBlip(Vector3 pos, BlipSprite sprite, BlipColor color, string name)
+        {
+            // Supprime l'ancien blip s'il existe (évite les doublons)
+            if (_missionBlip != null && _missionBlip.Exists())
+            {
+                _missionBlip.ShowRoute = false;
+                _missionBlip.Delete();
             }
 
-            _activeMission = null;
+            _missionBlip = World.CreateBlip(pos);
+            _missionBlip.Sprite = sprite;
+            _missionBlip.Color = color;
+            _missionBlip.Name = name;
+            _missionBlip.ShowRoute = true; // Active le GPS jaune/vert
         }
     }
 }

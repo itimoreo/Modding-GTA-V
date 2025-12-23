@@ -82,6 +82,8 @@ namespace CarDealerShipMod
             _missions = new MissionManager(_availableVehicles, _spawnLocations, _missionDeliveryLocation);
             _menus = new MenuManager(_economy, _missions, _baseCarPrice, MoveBlackMarket);
 
+            _missions.MissionCompleted += OnMissionCompleted;
+
             _economy.Load();
             UpdateBlips();
             InitializeStashBlip();
@@ -89,6 +91,18 @@ namespace CarDealerShipMod
 
             Tick += OnTick;
             KeyDown += OnKeyDown;
+        }
+
+        private void OnMissionCompleted(int reward)
+        {
+            int overflow;
+            bool allCarried = _economy.TryAddDirtyMoneyWithLimit(reward, out overflow);
+            _economy.Save();
+
+            if (!allCarried && overflow > 0)
+            {
+                Notification.Show($"~y~Carry limit reached. ${overflow} stored at Black Market.");
+            }
         }
 
         private void OnTick(object sender, EventArgs e)
@@ -113,13 +127,7 @@ namespace CarDealerShipMod
 
             _menus.Update();
 
-            _missions.TryHandleTheftStage();
-            if (_missions.TryDeliverStolenVehicle(out int reward))
-            {
-                int overflow;
-                _economy.TryAddDirtyMoneyWithLimit(reward, out overflow);
-                _economy.Save();
-            }
+            _missions.Update();
         }
 
         private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
@@ -150,7 +158,7 @@ namespace CarDealerShipMod
 
             if (e.KeyCode == System.Windows.Forms.Keys.T)
             {
-                _missions.ForceResetMission();
+                _missions.ForceReset();
             }
 
             if (e.KeyCode == System.Windows.Forms.Keys.F7)
