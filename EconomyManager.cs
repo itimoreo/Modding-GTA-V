@@ -90,17 +90,32 @@ namespace CarDealerShipMod
             return new Vector3();
         }
 
-        private Vector3 GetFranklinStash()
+private Vector3 GetFranklinStash()
+{
+    Vector3 oldHouse = _characterStashLocations[PedHash.Franklin][0];
+    Vector3 newHouse = _characterStashLocations[PedHash.Franklin][1];
+
+    // On cherche l'ID du blip de "Planque" (Icone ID 40) le plus proche du joueur.
+    // Hash.GET_CLOSEST_BLIP_INFO_ID renvoie un "handle" (un numéro) pour le blip.
+    int blip = Function.Call<int>(Hash.GET_CLOSEST_BLIP_INFO_ID, 40);
+
+    // Si un blip de maison a été trouvé (0 veut dire "aucun trouvé")
+    if (blip != 0)
+    {
+        // On demande au jeu : "Où est ce blip ?"
+        Vector3 blipPos = Function.Call<Vector3>(Hash.GET_BLIP_COORDS, blip);
+
+        // Si ce blip se trouve à moins de 100m de la nouvelle maison (Vinewood)
+        // Alors on considère que Franklin a déménagé.
+        if (blipPos.DistanceTo(newHouse) < 100.0f)
         {
-            Vector3 franklinPosition = Game.Player.Character.Position;
-
-            float distanceToOldHouse = franklinPosition.DistanceTo(_characterStashLocations[PedHash.Franklin][0]);
-            float distanceToNewHouse = franklinPosition.DistanceTo(_characterStashLocations[PedHash.Franklin][1]);
-
-            return (distanceToOldHouse < distanceToNewHouse)
-                ? _characterStashLocations[PedHash.Franklin][0]
-                : _characterStashLocations[PedHash.Franklin][1];
+            return newHouse;
         }
+    }
+
+    // Si le blip n'est pas à Vinewood (ou s'il est à Strawberry), on retourne l'ancienne maison.
+    return oldHouse;
+}
 
         public bool TryStoreDirtyMoney(int amount)
         {

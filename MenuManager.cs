@@ -23,6 +23,7 @@ namespace CarDealerShipMod
         private NativeMenu _stashMenu;
         private NativeMenu _confirmMenu;
         private NativeMenu _blackMarketMenu;
+        private NativeMenu _servicesMenu; // Le nouveau menu pour le téléphone
 
         private readonly CustomiFruit _ifruit = new CustomiFruit();
 
@@ -39,9 +40,10 @@ namespace CarDealerShipMod
 
         public void InitializeAll()
         {
-            InitializePhone();
             InitializeStashMenu();
+            InitializeServicesMenu();
             InitializeBlackMarketMenu();
+            InitializePhone();
         }
 
         public void Update()
@@ -183,6 +185,41 @@ namespace CarDealerShipMod
             _stashMenu.Add(withdrawItem);
             _menuPool.Add(_stashMenu);
         }
+        
+        private void InitializeServicesMenu()
+{
+    _servicesMenu = new NativeMenu("Réseau Criminel", "Services du Marché Noir");
+    _menuPool.Add(_servicesMenu);
+
+    // ITEM 1 : Voir l'argent sale (Lecture seule)
+    var moneyItem = new NativeItem("Argent Sale", "L'argent liquide sale que vous portez.");
+    moneyItem.AltTitle = "$0"; // Sera mis à jour à l'ouverture
+    moneyItem.Enabled = false; // On ne peut pas cliquer dessus, c'est juste pour info
+
+    // ITEM 2 : Demander un déplacement
+    var moveMarketItem = new NativeItem("Déplacer le Marché", "Demande au marché de changer de planque (~g~$5000~s~).");
+    
+    // Action quand on clique sur "Déplacer"
+    moveMarketItem.Activated += (sender, args) =>
+    {
+        _servicesMenu.Visible = false; // On ferme le menu
+        _onBlackMarketCalled?.Invoke(); // On déclenche le déplacement (ta fonction MoveBlackMarket)
+    };
+
+    _servicesMenu.Add(moneyItem);
+    _servicesMenu.Add(moveMarketItem);
+
+    // Mise à jour dynamique à l'ouverture du menu
+    _servicesMenu.Shown += (sender, args) =>
+    {
+        // On récupère l'argent actuel
+        int currentDirtyMoney = _economy.GetPlayerDirtyMoney();
+        moneyItem.AltTitle = $"~r~${currentDirtyMoney}";
+        
+        // Optionnel : Tu peux désactiver le bouton déplacer si le joueur n'a pas assez d'argent
+        // moveMarketItem.Enabled = currentDirtyMoney >= 5000; 
+    };
+}
 
         private void ConfirmTransaction(bool isDeposit, int amount)
         {
@@ -243,12 +280,16 @@ namespace CarDealerShipMod
                 Active = true,
                 Icon = ContactIcon.Blank
             };
+
             contactA.Answered += (contact) =>
             {
-                Notification.Show("~y~Black Market: How can I help you?");
-                _onBlackMarketCalled?.Invoke();
+                // On ferme le téléphone proprement (l'animation se fait toute seule généralement)
+                _ifruit.Close(); 
+    
+                // On ouvre le menu des services
+                _servicesMenu.Visible = true;
             };
-            _ifruit.Contacts.Add(contactA);
+                _ifruit.Contacts.Add(contactA);
 
             iFruitContact contactB = new iFruitContact("Spencer")
             {

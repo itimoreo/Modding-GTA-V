@@ -86,7 +86,7 @@ public class CarDealership : Script
     private Dictionary<PedHash, List<Vector3>> characterStashLocations = new Dictionary<PedHash, List<Vector3>>
 {
     { PedHash.Franklin, new List<Vector3> { new Vector3(-26.1794f, -1424.530f, 30.7456f), new Vector3(4.5484f, 530.7266f, 170.6173f) } }, // Garage (ancienne maison) et nouvelle maison
-    { PedHash.Michael, new List<Vector3> { new Vector3(-826.8317f, 180.2720f, 71.4480f) } }, // Villa
+    { PedHash.Michael, new List<Vector3> { new Vector3(-809.9568f, 189.4705f, 724787f) } }, // Villa
     { PedHash.Trevor, new List<Vector3> { new Vector3(1975.6405f, 3818.4612f, 33.4363f), new Vector3(92.9859f, -1291.684f, 29.2688f) } } // Caravane et Strip-club
 };
 

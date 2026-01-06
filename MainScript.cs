@@ -38,7 +38,7 @@ namespace CarDealerShipMod
         private readonly Dictionary<PedHash, List<Vector3>> _characterStashLocations = new Dictionary<PedHash, List<Vector3>>
         {
             { PedHash.Franklin, new List<Vector3> { new Vector3(-26.1794f, -1424.530f, 30.7456f), new Vector3(4.5484f, 530.7266f, 170.6173f) } },
-            { PedHash.Michael, new List<Vector3> { new Vector3(-826.8317f, 180.2720f, 71.4480f) } },
+            { PedHash.Michael, new List<Vector3> { new Vector3(-809.9568f, 189.4705f, 72.4787f) } },
             { PedHash.Trevor, new List<Vector3> { new Vector3(1975.6405f, 3818.4612f, 33.4363f), new Vector3(92.9859f, -1291.684f, 29.2688f) } }
         };
 
@@ -76,6 +76,7 @@ namespace CarDealerShipMod
 
         public MainScript()
         {
+            CleanUpOldBlips();
             _lastCharacter = (PedHash)Game.Player.Character.Model.Hash;
 
             _economy = new EconomyManager("scripts\\save.txt", _maxCarriedDirtyMoney, _stashRadius, _characterStashLocations);
@@ -88,6 +89,8 @@ namespace CarDealerShipMod
             UpdateBlips();
             InitializeStashBlip();
             _menus.InitializeAll();
+
+            Aborted += OnAborted;
 
             Tick += OnTick;
             KeyDown += OnKeyDown;
@@ -123,7 +126,7 @@ namespace CarDealerShipMod
             DrawStashLocation();
 
             HandleNotificationTimeout();
-            _economy.DrawDirtyMoneyHud();
+            //_economy.DrawDirtyMoneyHud();
 
             _menus.Update();
 
@@ -161,13 +164,13 @@ namespace CarDealerShipMod
                 _missions.ForceReset();
             }
 
-            if (e.KeyCode == System.Windows.Forms.Keys.F7)
-            {
-                ref int playerDirtyMoney = ref _economy.GetPlayerDirtyMoney();
-                playerDirtyMoney += 350000;
-                _economy.Save();
-                Notification.Show("~g~Cheat activated: +$350,000 dirty money!");
-            }
+            // if (e.KeyCode == System.Windows.Forms.Keys.F7)
+            // {
+            //     ref int playerDirtyMoney = ref _economy.GetPlayerDirtyMoney();
+            //     playerDirtyMoney += 350000;
+            //     _economy.Save();
+            //     Notification.Show("~g~Cheat activated: +$350,000 dirty money!");
+            // }
         }
 
         private void OpenBlackMarketMenu()
@@ -295,7 +298,7 @@ namespace CarDealerShipMod
                 stashLocation,
                 Vector3.Zero,
                 Vector3.Zero,
-                new Vector3(2.0f, 2.0f, 0.5f),
+                new Vector3(1.0f, 1.0f, 0.5f),
                 Color.Green,
                 false,
                 false
@@ -335,5 +338,75 @@ namespace CarDealerShipMod
             _launderingBlip.Name = "Money Laundering";
             _launderingBlip.Scale = 1.0f;
         }
+
+        private void OnAborted(object sender, EventArgs e)
+        {
+            // Nettoyage du Marché Noir
+            if (_marketBlip != null && _marketBlip.Exists())
+            {
+                _marketBlip.Delete();
+            }
+
+            // Nettoyage du Blanchiment
+            if (_launderingBlip != null && _launderingBlip.Exists())
+            {
+                _launderingBlip.Delete();
+            }
+
+            // Nettoyage de la Planque (Stash)
+            if (_stashBlip != null && _stashBlip.Exists())
+            {
+                _stashBlip.Delete();
+            }
+        }
+
+        private void CleanUpOldBlips()
+    {
+    // On récupère TOUS les blips de la carte
+    foreach (Blip b in World.GetAllBlips())
+    {
+        // Sécurité : on vérifie que le blip existe
+        if (!b.Exists()) continue;
+
+        // 1. Nettoyage du Marché Noir (Sprite GunCar + Rouge)
+        // On vérifie si c'est le bon icône ET s'il est proche d'une des positions connues du marché
+        if (b.Sprite == BlipSprite.GunCar && b.Color == BlipColor.Red)
+        {
+            // On vérifie la distance avec ta position actuelle du marché
+            if (b.Position.DistanceTo(_marketLocation) < 5.0f)
+            {
+                b.Delete();
+                continue; // On passe au suivant
+            }
+
+            // Optionnel : Si tu veux être sûr de virer ceux des autres emplacements possibles
+            foreach (Vector3 pos in _blackMarketLocations)
+            {
+                if (b.Position.DistanceTo(pos) < 5.0f)
+                {
+                    b.Delete();
+                    break;
+                }
+            }
+        }
+
+        // 2. Nettoyage du Blanchiment (Sprite Lester + RougeLight)
+        if (b.Sprite == BlipSprite.Lester && b.Color == BlipColor.RedLight)
+        {
+            if (b.Position.DistanceTo(_launderingLocation) < 5.0f)
+            {
+                b.Delete();
+            }
+        }
+        
+        // 3. Nettoyage du Stash (Sprite Safehouse + Jaune)
+        // Attention à ne pas supprimer la vraie maison de Franklin (qui est blanche/verte par défaut)
+        if (b.Sprite == BlipSprite.Safehouse && b.Color == BlipColor.Yellow)
+        {
+             // On supprime sans pitié car seul ton mod met des safehouses jaunes
+             b.Delete();
+        }
+    }
+    }
     }
 }
