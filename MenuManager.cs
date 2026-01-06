@@ -188,16 +188,16 @@ namespace CarDealerShipMod
         
         private void InitializeServicesMenu()
 {
-    _servicesMenu = new NativeMenu("Réseau Criminel", "Services du Marché Noir");
+    _servicesMenu = new NativeMenu("CrimNet", "Black Market Services");
     _menuPool.Add(_servicesMenu);
 
     // ITEM 1 : Voir l'argent sale (Lecture seule)
-    var moneyItem = new NativeItem("Argent Sale", "L'argent liquide sale que vous portez.");
+    var moneyItem = new NativeItem("Dirty Money", "Carried Dirty Money");
     moneyItem.AltTitle = "$0"; // Sera mis à jour à l'ouverture
     moneyItem.Enabled = false; // On ne peut pas cliquer dessus, c'est juste pour info
 
     // ITEM 2 : Demander un déplacement
-    var moveMarketItem = new NativeItem("Déplacer le Marché", "Demande au marché de changer de planque (~g~$5000~s~).");
+    var moveMarketItem = new NativeItem("Move Black Market", "Change location of the black market.");
     
     // Action quand on clique sur "Déplacer"
     moveMarketItem.Activated += (sender, args) =>

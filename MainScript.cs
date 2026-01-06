@@ -20,13 +20,26 @@ namespace CarDealerShipMod
             new Vector3(-335.5068f, -2717.748f, 6.0003f),
             new Vector3(-1583.057f, 5156.8511f, 19.6654f),
             new Vector3(3716.1060f, 4525.1758f, 21.6604f),
-            new Vector3(-560.7960f, 302.1563f, 83.1715f),
+            new Vector3(-28.2225f, -1085.1254f, 26.0007f),
+            new Vector3(605.1786f, -417.6840f, 24.6840f),
+            new Vector3(119.9849f, 6642.1274f, 31.5756f),
+            new Vector3(1170.9813f, -2973.4436f, 5.0628f),
         };
 
-        private readonly Vector3 _launderingLocation = new Vector3(640.3064f, 2780.3027f, 41.9824f);
+        private readonly List<LaunderingPoint> _launderingPoints = new List<LaunderingPoint>
+{
+    // 1. Petit Dealer (Vespucci) : Frais énormes (40%), limite basse, risque doublé
+    new LaunderingPoint { Name = "Street Dealer", Position = new Vector3(-1225.9032f, -1439.8582f, 4.3372f), Fee = 0.40f, MaxAmount = 5000, RiskMultiplier = 2.0f },
+    
+    // 2. Moyen (Lavage auto) : Frais moyens (20%), limite $25k, risque normal
+    new LaunderingPoint { Name = "Car Wash Front", Position = new Vector3(34.8f, -1391.8f, 29.3f), Fee = 0.20f, MaxAmount = 25000, RiskMultiplier = 1.0f },
+    
+    // 3. Gros (Comptable pro) : Frais bas (10%), limite énorme, risque divisé par deux
+    new LaunderingPoint { Name = "Professional Accountant", Position = new Vector3(-1419.1924f, -251.2594f, 46.3792f), Fee = 0.10f, MaxAmount = 250000, RiskMultiplier = 0.5f }
+};
 
         private Blip _marketBlip;
-        private Blip _launderingBlip;
+        private List<Blip> _activeLaunderingBlips = new List<Blip>();
         private Blip _stashBlip;
 
         private bool _isPlayerInMarket;
@@ -136,28 +149,27 @@ namespace CarDealerShipMod
         private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
         {
             if (e.KeyCode == System.Windows.Forms.Keys.E)
-            {
-                Vector3 currentStash = _economy.GetCurrentStash();
+{
+    Vector3 currentStash = _economy.GetCurrentStash();
+    
+    // On cherche le blanchisseur le plus proche (moins de 5m)
+    LaunderingPoint currentLaunderer = _launderingPoints.Find(p => Game.Player.Character.Position.DistanceTo(p.Position) < 5.0f);
 
-                if (Game.Player.Character.Position.DistanceTo(_launderingLocation) < 5.0f)
-                {
-                    _economy.TryLaunderingMoney(_launderingLocation);
-                    _menus.UpdateStashMenuTitle();
-                }
-                else if (Game.Player.Character.Position.DistanceTo(currentStash) < _stashRadius)
-                {
-                    _menus.OpenStashMenu();
-                }
-                else if (_isPlayerInMarket)
-                {
-                    OpenBlackMarketMenu();
-                    _menus.UpdateStashMenuTitle();
-                }
-                else
-                {
-                    Notification.Show("~r~You are not in the correct location to perform this action!");
-                }
-            }
+    if (currentLaunderer != null)
+    {
+        _economy.TryLaunderingMoney(currentLaunderer);
+        _menus.UpdateStashMenuTitle();
+    }
+    else if (Game.Player.Character.Position.DistanceTo(currentStash) < _stashRadius)
+    {
+        _menus.OpenStashMenu();
+    }
+    else if (_isPlayerInMarket)
+    {
+        OpenBlackMarketMenu();
+        _menus.UpdateStashMenuTitle();
+    }
+}
 
             if (e.KeyCode == System.Windows.Forms.Keys.T)
             {
@@ -234,14 +246,18 @@ namespace CarDealerShipMod
         }
 
         private void CheckLaunderingLocation()
-        {
-            Vector3 playerPosition = Game.Player.Character.Position;
+{
+    Vector3 playerPosition = Game.Player.Character.Position;
 
-            if (playerPosition.DistanceTo(_launderingLocation) <= 5.0f)
-            {
-                Notification.Show("~b~You are at the money laundering spot! Press ~y~E~b~ to launder dirty money.");
-            }
+    foreach (var point in _launderingPoints)
+    {
+        if (playerPosition.DistanceTo(point.Position) <= 5.0f)
+        {
+            Notification.Show($"~b~You are at {point.Name}! Press ~y~E~b~ to launder.");
+            return; // On arrête la boucle dès qu'on en a trouvé un
         }
+    }
+}
 
         private void DrawMarketLocation()
         {
@@ -257,19 +273,22 @@ namespace CarDealerShipMod
             );
         }
 
-        private void DrawLaunderingLocation()
-        {
-            World.DrawMarker(
-                MarkerType.VerticalCylinder,
-                _launderingLocation,
-                Vector3.Zero,
-                Vector3.Zero,
-                new Vector3(3.0f, 3.0f, 0.5f),
-                Color.Red,
-                false,
-                false
-            );
-        }
+private void DrawLaunderingLocation()
+{
+    foreach (var point in _launderingPoints)
+    {
+        World.DrawMarker(
+            MarkerType.VerticalCylinder,
+            point.Position,
+            Vector3.Zero,
+            Vector3.Zero,
+            new Vector3(3.0f, 3.0f, 0.5f),
+            Color.Red,
+            false,
+            false
+        );
+    }
+}
 
         private void InitializeStashBlip()
         {
@@ -325,19 +344,29 @@ namespace CarDealerShipMod
             _marketBlip.Scale = 1.0f;
         }
 
-        private void CreateLaunderingBlip()
-        {
-            if (_launderingBlip != null)
-            {
-                _launderingBlip.Delete();
-            }
+private void CreateLaunderingBlip()
+{
+    // On nettoie d'abord notre liste de blips actifs pour éviter les doublons
+    foreach (Blip b in _activeLaunderingBlips)
+    {
+        if (b != null && b.Exists()) b.Delete();
+    }
+    _activeLaunderingBlips.Clear();
 
-            _launderingBlip = World.CreateBlip(_launderingLocation);
-            _launderingBlip.Sprite = BlipSprite.Lester;
-            _launderingBlip.Color = BlipColor.RedLight;
-            _launderingBlip.Name = "Money Laundering";
-            _launderingBlip.Scale = 1.0f;
-        }
+    // On crée un nouveau blip pour chaque point de la liste
+    foreach (var point in _launderingPoints)
+    {
+        Blip newBlip = World.CreateBlip(point.Position);
+        newBlip.Sprite = BlipSprite.Lester;
+        newBlip.Color = BlipColor.RedLight;
+        newBlip.Name = "Laundering: " + point.Name;
+        newBlip.Scale = 0.8f;
+        newBlip.IsShortRange = true;
+
+        // On l'ajoute à notre liste pour pouvoir le supprimer plus tard
+        _activeLaunderingBlips.Add(newBlip);
+    }
+}
 
         private void OnAborted(object sender, EventArgs e)
         {
@@ -347,11 +376,15 @@ namespace CarDealerShipMod
                 _marketBlip.Delete();
             }
 
-            // Nettoyage du Blanchiment
-            if (_launderingBlip != null && _launderingBlip.Exists())
-            {
-                _launderingBlip.Delete();
-            }
+// Nettoyage de tous les blips de blanchiment actifs
+foreach (Blip b in _activeLaunderingBlips)
+{
+    if (b != null && b.Exists())
+    {
+        b.Delete();
+    }
+}
+_activeLaunderingBlips.Clear();
 
             // Nettoyage de la Planque (Stash)
             if (_stashBlip != null && _stashBlip.Exists())
@@ -390,14 +423,19 @@ namespace CarDealerShipMod
             }
         }
 
-        // 2. Nettoyage du Blanchiment (Sprite Lester + RougeLight)
-        if (b.Sprite == BlipSprite.Lester && b.Color == BlipColor.RedLight)
+// 2. Nettoyage du Blanchiment (Sprite Lester + RougeLight)
+if (b.Sprite == BlipSprite.Lester && b.Color == BlipColor.RedLight)
+{
+    // On vérifie si ce blip est proche d'un des points de la liste
+    foreach (var point in _launderingPoints)
+    {
+        if (b.Position.DistanceTo(point.Position) < 5.0f)
         {
-            if (b.Position.DistanceTo(_launderingLocation) < 5.0f)
-            {
-                b.Delete();
-            }
+            b.Delete();
+            break; // On a trouvé le point, on peut quitter la boucle foreach
         }
+    }
+}
         
         // 3. Nettoyage du Stash (Sprite Safehouse + Jaune)
         // Attention à ne pas supprimer la vraie maison de Franklin (qui est blanche/verte par défaut)

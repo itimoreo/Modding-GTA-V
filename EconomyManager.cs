@@ -191,52 +191,58 @@ private Vector3 GetFranklinStash()
             return false;
         }
 
-        public bool TryLaunderingMoney(Vector3 launderingLocation)
+        public bool TryLaunderingMoney(LaunderingPoint point)
+{
+    // Vérification de la distance avec la position du point passé en paramètre
+    if (Game.Player.Character.Position.DistanceTo(point.Position) < 5.0f)
+    {
+        if (Game.Player.WantedLevel > 0)
         {
-            if (Game.Player.Character.Position.DistanceTo(launderingLocation) < 5.0f)
-            {
-                if (Game.Player.WantedLevel > 0)
-                {
-                    Notification.Show("~r~You must lose your wanted level before laundering dirty money!");
-                    return false;
-                }
-
-                ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
-
-                if (playerDirtyMoney > 0)
-                {
-                    if (IsDetectedDuringLaundering())
-                    {
-                        Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player, 3, false);
-                        Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player, false);
-                        Notification.Show("~r~Laundry detected! Hostiles incoming!");
-                        return false;
-                    }
-
-                    int convertedMoney = (int)(playerDirtyMoney * 0.8);
-                    int fee = playerDirtyMoney - convertedMoney;
-                    Game.Player.Money += convertedMoney;
-                    playerDirtyMoney = 0;
-                    Save();
-                    Notification.Show($"~b~Laundry successful! ${convertedMoney} laundered, ${fee} launder fee.");
-                    return true;
-                }
-
-                Notification.Show("~r~You don't have any dirty money to launder!");
-                return false;
-            }
-
-            Notification.Show("~r~You are not at the laundering location!");
+            Notification.Show("~r~You must lose your wanted level before laundering!");
             return false;
         }
 
-        private bool IsDetectedDuringLaundering()
+        ref int playerDirtyMoney = ref GetPlayerDirtyMoney();
+
+        if (playerDirtyMoney > 0)
         {
-            int chance = Utils.Rng.Next(0, 101);
-            ref int playerDirtyMoneyDetect = ref GetPlayerDirtyMoney();
-            int detectionRisk = Math.Min(playerDirtyMoneyDetect / 500, 50);
-            return chance <= detectionRisk;
+            // On détermine la somme à traiter (soit tout l'argent, soit la limite du blanchisseur)
+            int amountToLaunder = Math.Min(playerDirtyMoney, point.MaxAmount);
+
+            // Calcul du risque basé sur le multiplicateur du point spécifique
+            if (IsDetectedDuringLaundering(amountToLaunder, point.RiskMultiplier))
+            {
+                Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player, 3, false);
+                Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player, false);
+                Notification.Show("~r~Laundry busted! Cops are on their way!");
+                return false;
+            }
+
+            int fee = (int)(amountToLaunder * point.Fee);
+            int convertedMoney = amountToLaunder - fee;
+            
+            Game.Player.Money += convertedMoney;
+            playerDirtyMoney -= amountToLaunder; // On déduit uniquement la somme traitée
+            Save();
+            
+            Notification.Show($"~b~{point.Name} processed ~w~${amountToLaunder}.");
+            Notification.Show($"~g~Money received: ${convertedMoney} ~r~(Fee: ${fee})");
+            return true;
         }
+
+        Notification.Show("~r~You don't have any dirty money to launder!");
+        return false;
+    }
+    return false;
+}
+
+private bool IsDetectedDuringLaundering(int amount, float riskMultiplier)
+{
+    int chance = Utils.Rng.Next(0, 101);
+    // Le risque de base est plafonné à 50%, puis multiplié par le facteur du point
+    int detectionRisk = (int)(Math.Min(amount / 500, 50) * riskMultiplier);
+    return chance <= detectionRisk;
+}
 
         public bool TryAddDirtyMoneyWithLimit(int amount, out int storedOverflow)
         {

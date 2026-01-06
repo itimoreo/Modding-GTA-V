@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CarDealerShipMod")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+730e61dd13c2a70579ff5d6fd9fae16e8ec638ba")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d74f66affb78cae279eb9192cd0458a1b5e541cb")]
 [assembly: System.Reflection.AssemblyProductAttribute("CarDealerShipMod")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CarDealerShipMod")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
